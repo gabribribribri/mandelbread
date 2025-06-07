@@ -1,3 +1,4 @@
+mod utils;
 use egui::load::Result;
 use sfml::{
     graphics::{Color, Image, IntRect, RenderTarget, RenderWindow, Sprite, Texture},
@@ -5,7 +6,7 @@ use sfml::{
 };
 use std::time::Instant;
 
-use mandelbread::map_range;
+use mandelbread::utils::{distance_gradient, map_range, tuple_to_sfml_color};
 
 const WINDOW_WIDTH: i32 = 800;
 const WINDOW_HEIGHT: i32 = 600;
@@ -46,21 +47,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let mut n_re = c_re;
                 let mut n_im = c_im;
 
-                let mut n: i32 = 0;
-                while n < 100 {
+                let mut distance = 0.0;
+                for _ in 1..=99 {
                     let i_re = n_re * n_re - n_im * n_im + c_re;
                     let i_im = 2.0 * n_re * n_im + c_im;
                     n_re = i_re;
                     n_im = i_im;
-                    if n_re.abs() + n_im.abs() >= 100.0 {
+                    distance = n_re.abs() + n_im.abs();
+                    if distance >= 100.0 {
                         break;
                     }
-                    n += 1;
                 }
-                if n >= 99 {
-                    image.set_pixel(x as u32, y as u32, Color::WHITE)?;
-                } else {
+                if distance <= 100.0 {
                     image.set_pixel(x as u32, y as u32, Color::BLACK)?;
+                } else {
+                    image.set_pixel(
+                        x as u32,
+                        y as u32,
+                        tuple_to_sfml_color(distance_gradient::<100, 1000>(distance)),
+                    )?;
                 }
             }
         }

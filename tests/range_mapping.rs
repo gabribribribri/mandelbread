@@ -1,4 +1,4 @@
-use mandelbread::map_range;
+use mandelbread::utils::map_range;
 
 const EPSILON: f32 = 0.000001; // A small constant for floating-point comparisons
 
