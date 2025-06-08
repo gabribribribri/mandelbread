@@ -1,21 +1,21 @@
 use std::time::Duration;
 
 use eframe::egui;
-use mandelbread::{fractal_engine::FractalEngine, sfml_engine::SfmlEngine};
+use mandelbread::{engines::sfml_engine::SfmlEngine, fractal_engine::FractalEngine};
 
 #[derive(PartialEq, Eq)]
 enum SelectedEngine {
     Sfml,
 }
 
-pub struct Mandelbread {
+pub struct GuiWrapper {
     selected_engine: SelectedEngine,
     current_engine: Box<dyn FractalEngine>,
     engine_enabled: bool,
     reload_duration: Duration,
 }
 
-impl Default for Mandelbread {
+impl Default for GuiWrapper {
     fn default() -> Self {
         Self {
             selected_engine: SelectedEngine::Sfml,
@@ -26,7 +26,7 @@ impl Default for Mandelbread {
     }
 }
 
-impl Mandelbread {
+impl GuiWrapper {
     fn left_panel(&mut self, ui: &mut egui::Ui) {
         ui.heading("Engines");
         ui.selectable_value(&mut self.selected_engine, SelectedEngine::Sfml, "SFML");
@@ -51,7 +51,7 @@ impl Mandelbread {
     }
 }
 
-impl eframe::App for Mandelbread {
+impl eframe::App for GuiWrapper {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::SidePanel::left("left_panel")
             .resizable(true)

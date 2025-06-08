@@ -1,20 +1,9 @@
 use sfml::graphics::Color;
 
-// TODO make this function generic and cool
-pub fn map_range(inr_x: i32, inr_y: i32, outr_x: f32, outr_y: f32, value: i32) -> f32 {
-    assert!(inr_x <= value && value <= inr_y);
-    assert!(inr_x != inr_y);
-    assert!(outr_x != outr_y);
-
-    let inr_x_f32 = inr_x as f32;
-    let inr_y_f32 = inr_y as f32;
-    let value_f32 = value as f32;
-
-    (value_f32 - inr_x_f32) * (outr_y - outr_x) / (inr_y_f32 - inr_x_f32) + outr_x
-}
+struct ConversionColor(u8, u8, u8);
 
 // TODO understand this shit
-pub fn distance_gradient<const START: u32, const END: u32>(value: f32) -> (u8, u8, u8) {
+pub fn distance_gradient<const START: u32, const END: u32>(value: f32) -> ConversionColor {
     let start = START as f32;
     let end = END as f32;
     assert!(end >= start);
@@ -46,9 +35,12 @@ pub fn distance_gradient<const START: u32, const END: u32>(value: f32) -> (u8, u
     let final_green = green.round() as u8;
     let final_blue = blue.round() as u8;
 
-    (final_red, final_green, final_blue)
+    ConversionColor(final_red, final_green, final_blue)
 }
 
-pub fn tuple_to_sfml_color(t: (u8, u8, u8)) -> Color {
-    Color::rgb(t.0, t.1, t.2)
+impl Into<sfml::graphics::Color> for ConversionColor {
+    #[inline]
+    fn into(self) -> sfml::graphics::Color {
+        Color::rgb(self.0, self.1, self.2)
+    }
 }

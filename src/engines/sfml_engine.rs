@@ -1,8 +1,12 @@
 use std::time::Instant;
 
+use eframe::WindowAttributes;
+use egui::{Rect, Vec2};
 use sfml::{
     cpp::FBox,
-    graphics::{Color, Image, IntRect, RenderTarget, RenderWindow, Sprite, Texture},
+    graphics::{
+        Color, FloatRect, Image, IntRect, RenderTarget, RenderWindow, Sprite, Texture, View,
+    },
     window::{ContextSettings, Event, Style},
 };
 
@@ -33,15 +37,24 @@ impl SfmlEngine {
         win.set_framerate_limit(60);
 
         let ctx = FractalContext {
-            resolution: (WINDOW_WIDTH, WINDOW_HEIGHT),
+            res: (WINDOW_WIDTH, WINDOW_HEIGHT),
             start: Complex::new(-2.0, 1.5),
-            end: Complex::new(2.0, -1.5),
+            end: Complex::new(1.0, -1.5),
         };
 
         let image = Image::new_solid(WINDOW_WIDTH, WINDOW_HEIGHT, Color::rgb(32, 0, 0))?;
         let texture = Texture::from_image(&image, IntRect::default())?;
 
         Ok(Self { win, ctx, texture })
+    }
+
+    pub fn resize(&mut self, width: u32, height: u32) {
+        self.ctx.res.0 = width;
+        self.ctx.res.1 = height;
+
+        self.win.set_view(
+            &*View::from_rect(FloatRect::new(0.0, 0.0, width as f32, height as f32)).unwrap(),
+        );
     }
 }
 
@@ -50,6 +63,7 @@ impl FractalEngine for SfmlEngine {
         while let Some(event) = self.win.poll_event() {
             match event {
                 Event::Closed => self.win.close(),
+                Event::Resized { width, height } => self.resize(width, height),
                 _ => {}
             }
         }
@@ -62,36 +76,16 @@ impl FractalEngine for SfmlEngine {
     fn reload(&mut self) -> Result<std::time::Duration, Box<dyn std::error::Error>> {
         let now = Instant::now();
 
-        let mut image = Image::new_solid(WINDOW_WIDTH, WINDOW_HEIGHT, Color::rgb(32, 0, 0))?;
+        let mut image = Image::new_solid(self.ctx.res.0, self.ctx.res.1, Color::rgb(32, 0, 0))?;
 
-        for x in 0..WINDOW_WIDTH as i32 {
-            for y in 0..WINDOW_HEIGHT as i32 {
-                let c_re = map_range(
-                    0,
-                    WINDOW_WIDTH as i32,
-                    self.ctx.start.re,
-                    self.ctx.end.re,
-                    x,
-                );
-
-                let c_im = map_range(
-                    0,
-                    WINDOW_HEIGHT as i32,
-                    self.ctx.start.im,
-                    self.ctx.end.im,
-                    y,
-                );
-
-                let mut n_re = c_re;
-                let mut n_im = c_im;
-
+        for x in 0..self.ctx.res.0 {
+            for y in 0..self.ctx.res.1 {
+                let c = Complex::map_between(self.ctx.res, self.ctx.start, self.ctx.end, (x, y));
+                let mut n = c;
                 let mut distance = 0.0;
-                for _ in 1..=99 {
-                    let i_re = n_re * n_re - n_im * n_im + c_re;
-                    let i_im = 2.0 * n_re * n_im + c_im;
-                    n_re = i_re;
-                    n_im = i_im;
-                    distance = n_re.abs() + n_im.abs();
+                for _ in 1..=100 {
+                    n.sq_add(c);
+                    distance = n.re.abs() + n.im.abs();
                     if distance >= 100.0 {
                         break;
                     }
@@ -99,11 +93,8 @@ impl FractalEngine for SfmlEngine {
                 if distance <= 100.0 {
                     image.set_pixel(x as u32, y as u32, Color::BLACK)?;
                 } else {
-                    image.set_pixel(
-                        x as u32,
-                        y as u32,
-                        tuple_to_sfml_color(distance_gradient::<100, 1000>(distance)),
-                    )?;
+                    // TODO Make this a variable shader
+                    image.set_pixel(x, y, distance_gradient::<100, 1500>(distance).into())?;
                 }
             }
         }

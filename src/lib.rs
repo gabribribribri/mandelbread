@@ -8,5 +8,4 @@ pub mod fractal_engine;
 pub mod utils;
 
 /// DIFFERENT ENGINES ///
-// Sfml, first engine
-pub mod sfml_engine;
+pub mod engines;

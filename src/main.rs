@@ -1,6 +1,6 @@
-use mandelbread::{fractal_engine::FractalEngine, sfml_engine::SfmlEngine};
+use mandelbread::{engines::sfml_engine::SfmlEngine, fractal_engine::FractalEngine};
 
-use crate::ui::Mandelbread as GuiWrapper;
+use crate::ui::GuiWrapper;
 
 mod ui;
 

@@ -3,7 +3,7 @@ use std::time::Duration;
 use crate::complex::Complex;
 
 pub struct FractalContext<T> {
-    pub resolution: (u32, u32),
+    pub res: (u32, u32),
     pub start: Complex<T>, // up top
     pub end: Complex<T>,   // down bottom
 }
