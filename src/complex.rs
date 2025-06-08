@@ -1,4 +1,4 @@
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Sub};
 
 #[derive(Default, Clone, Copy)]
 pub struct Complex<T> {
@@ -6,10 +6,22 @@ pub struct Complex<T> {
     pub im: T,
 }
 
+impl<T> AddAssign for Complex<T>
+where
+    T: std::ops::AddAssign,
+{
+    #[inline]
+    fn add_assign(&mut self, rhs: Self) {
+        self.re += rhs.re;
+        self.im += rhs.im;
+    }
+}
+
 impl<T> Complex<T>
 where
     T: Copy + Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Div<Output = T> + FromLossyU32,
 {
+    #[inline]
     pub fn new(re: T, im: T) -> Self {
         Self { re, im }
     }
@@ -45,12 +57,14 @@ pub trait FromLossyU32: Sized {
 }
 
 impl FromLossyU32 for f32 {
+    #[inline]
     fn f_u32(n: u32) -> Self {
         n as Self
     }
 }
 
 impl FromLossyU32 for f64 {
+    #[inline]
     fn f_u32(n: u32) -> Self {
         n as Self
     }

@@ -22,21 +22,19 @@ impl Default for FractalContext<f32> {
 pub enum FractalAction {
     Shutdown,
     Reload,
+    Move(Complex<f32>),
 }
 
 pub enum FractalInfoNotif {
     ReloadTime(Duration),
 }
 
+#[derive(Clone, Copy, Default)]
 pub struct FractalInfos {
     pub reload_time: Option<Duration>,
 }
 
 impl FractalInfos {
-    pub fn new() -> Self {
-        Self { reload_time: None }
-    }
-
     pub fn fuse_together(&mut self, other: &FractalInfos) {
         self.reload_time = other.reload_time.or(self.reload_time);
     }
@@ -47,9 +45,9 @@ pub trait FractalEngine {
 
     fn render(&mut self);
 
-    fn shutdown(&mut self);
-
     fn get_ctx(&self) -> FractalContext<f64>;
 
-    fn get_infos(&self) -> FractalInfos;
+    fn get_infos(&mut self) -> FractalInfos;
+
+    fn move_view(&mut self, c: Complex<f32>);
 }

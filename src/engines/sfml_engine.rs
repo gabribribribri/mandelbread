@@ -13,7 +13,7 @@ use sfml::{
     graphics::{
         Color, FloatRect, Image, IntRect, RenderTarget, RenderWindow, Sprite, Texture, View,
     },
-    window::{ContextSettings, Event, Style},
+    window::{ContextSettings, Event, Key, Style},
 };
 
 use crate::{
@@ -28,6 +28,7 @@ pub struct SfmlEngine {
     action_sender: Sender<FractalAction>,
     info_receiver: Receiver<FractalInfoNotif>,
     fractal_ctx: Arc<Mutex<FractalContext<f32>>>,
+    fractal_infos: FractalInfos,
 }
 
 pub struct SfmlEngineInternal {
@@ -39,7 +40,7 @@ pub struct SfmlEngineInternal {
 }
 
 impl SfmlEngine {
-    pub fn spawn() -> Box<SfmlEngine> {
+    pub fn spawn() -> SfmlEngine {
         let (action_tx, action_rx) = mpsc::channel::<FractalAction>();
 
         let (info_tx, info_rx) = mpsc::channel::<FractalInfoNotif>();
@@ -92,28 +93,25 @@ impl SfmlEngine {
             println!("The engine stopped running...")
         });
 
-        Box::new(SfmlEngine {
+        SfmlEngine {
             action_sender: action_tx,
             info_receiver: info_rx,
             fractal_ctx: ctx,
-        })
+            fractal_infos: FractalInfos::default(),
+        }
     }
 }
 
 impl FractalEngine for SfmlEngine {
     fn reload(&mut self) {
         match self.action_sender.send(FractalAction::Reload) {
-            Ok(_) => (),
             Err(e) => println!("SFML Engine will not reload : {}", e.to_string()),
+            _ => (),
         }
     }
 
     fn render(&mut self) {
         // bats les couilles
-    }
-
-    fn shutdown(&mut self) {
-        self.action_sender.send(FractalAction::Shutdown).unwrap();
     }
 
     fn get_ctx(&self) -> FractalContext<f64> {
@@ -125,14 +123,20 @@ impl FractalEngine for SfmlEngine {
         }
     }
 
-    fn get_infos(&self) -> FractalInfos {
-        let mut infos = FractalInfos::new();
+    fn get_infos(&mut self) -> FractalInfos {
         while let Ok(notif) = self.info_receiver.try_recv() {
             match notif {
-                FractalInfoNotif::ReloadTime(dur) => infos.reload_time = Some(dur),
+                FractalInfoNotif::ReloadTime(dur) => self.fractal_infos.reload_time = Some(dur),
             }
         }
-        return infos;
+        self.fractal_infos
+    }
+
+    fn move_view(&mut self, c: Complex<f32>) {
+        match self.action_sender.send(FractalAction::Move(c)) {
+            Err(e) => println!("Cannot move : {}", e.to_string()),
+            _ => (),
+        }
     }
 }
 
@@ -150,6 +154,22 @@ impl SfmlEngineInternal {
             match event {
                 Event::Closed => self.win.close(),
                 Event::Resized { width, height } => self.resize(width, height),
+                Event::KeyPressed {
+                    code,
+                    scan,
+                    alt,
+                    ctrl,
+                    shift,
+                    system,
+                } => match code {
+                    Key::W => self.move_view(Complex::new(0.0, 1.0)),
+                    Key::A => self.move_view(Complex::new(-1.0, 1.0)),
+                    Key::S => self.move_view(Complex::new(0.0, -1.0)),
+                    Key::D => self.move_view(Complex::new(1.0, 0.0)),
+                    Key::R => self.reload(),
+
+                    _ => (),
+                },
                 _ => (),
             }
         }
@@ -160,6 +180,7 @@ impl SfmlEngineInternal {
             Ok(action) => match action {
                 FractalAction::Shutdown => self.win.close(),
                 FractalAction::Reload => self.reload(),
+                FractalAction::Move(c) => self.move_view(c),
             },
             Err(TryRecvError::Empty) => (),
             Err(TryRecvError::Disconnected) => panic!("Connexion shouldn't be disconnected"),
@@ -225,5 +246,11 @@ impl SfmlEngineInternal {
         self.win.clear(Color::rgb(0, 32, 0));
         self.win.draw(&sprite);
         self.win.display();
+    }
+
+    fn move_view(&mut self, c: Complex<f32>) {
+        let mut ctx = self.fractal_ctx.lock().unwrap();
+        ctx.start += c;
+        ctx.end += c;
     }
 }
