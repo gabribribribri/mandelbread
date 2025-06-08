@@ -163,7 +163,7 @@ impl SfmlEngineInternal {
                     system,
                 } => match code {
                     Key::W => self.move_view(Complex::new(0.0, 1.0)),
-                    Key::A => self.move_view(Complex::new(-1.0, 1.0)),
+                    Key::A => self.move_view(Complex::new(-1.0, 0.0)),
                     Key::S => self.move_view(Complex::new(0.0, -1.0)),
                     Key::D => self.move_view(Complex::new(1.0, 0.0)),
                     Key::R => self.reload(),
