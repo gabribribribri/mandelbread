@@ -1,6 +1,7 @@
 use sfml::graphics::Color;
 
-struct ConversionColor(u8, u8, u8);
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub struct ConversionColor(pub u8, pub u8, pub u8);
 
 // TODO understand this shit
 pub fn distance_gradient<const START: u32, const END: u32>(value: f32) -> ConversionColor {

@@ -1,7 +1,11 @@
 use std::time::Duration;
 
 use eframe::egui;
-use mandelbread::{engines::sfml_engine::SfmlEngine, fractal_engine::FractalEngine};
+use egui::RichText;
+use mandelbread::{
+    engines::sfml_engine::SfmlEngine,
+    fractal_engine::{FractalContext, FractalEngine, FractalInfos},
+};
 
 #[derive(PartialEq, Eq)]
 enum SelectedEngine {
@@ -11,22 +15,33 @@ enum SelectedEngine {
 pub struct GuiWrapper {
     selected_engine: SelectedEngine,
     current_engine: Box<dyn FractalEngine>,
-    engine_enabled: bool,
-    reload_duration: Duration,
+    fractal_infos: FractalInfos,
 }
 
 impl Default for GuiWrapper {
     fn default() -> Self {
         Self {
             selected_engine: SelectedEngine::Sfml,
-            current_engine: Box::new(SfmlEngine::new().unwrap()),
-            engine_enabled: true,
-            reload_duration: Duration::default(),
+            current_engine: SfmlEngine::spawn(),
+            fractal_infos: FractalInfos::new(),
         }
     }
 }
 
 impl GuiWrapper {
+    fn infos(&mut self, ui: &mut egui::Ui) {
+        self.fractal_infos
+            .fuse_together(&self.current_engine.get_infos());
+
+        ui.horizontal(|ui| {
+            ui.label(RichText::new("Reload Time : ").strong());
+            ui.label(format!(
+                "{:?}",
+                self.fractal_infos.reload_time.unwrap_or(Duration::ZERO)
+            ));
+        });
+    }
+
     fn left_panel(&mut self, ui: &mut egui::Ui) {
         ui.heading("Engines");
         ui.selectable_value(&mut self.selected_engine, SelectedEngine::Sfml, "SFML");
@@ -35,18 +50,8 @@ impl GuiWrapper {
     fn sfml_frontend(&mut self, ui: &mut egui::Ui) {
         ui.heading("SFML Engine");
 
-        if ui.checkbox(&mut self.engine_enabled, "Enabled").clicked() {
-            match self.engine_enabled {
-                true => self.current_engine = Box::new(SfmlEngine::new().unwrap()),
-                false => self.current_engine.deinitialize(),
-            }
-        };
-
         if ui.button("Reload").clicked() {
-            match self.current_engine.reload() {
-                Ok(d) => self.reload_duration = d,
-                Err(e) => println!("UNABLE TO RENDER: {}", (*e).to_string()),
-            }
+            self.current_engine.reload();
         }
     }
 }
@@ -55,11 +60,14 @@ impl eframe::App for GuiWrapper {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::SidePanel::left("left_panel")
             .resizable(true)
-            .exact_width(300.0)
             .show(ctx, |ui| self.left_panel(ui));
 
         egui::CentralPanel::default().show(ctx, |ui| match self.selected_engine {
             SelectedEngine::Sfml => self.sfml_frontend(ui),
         });
+
+        egui::TopBottomPanel::bottom("bottom_panel")
+            .resizable(true)
+            .show(ctx, |ui| self.infos(ui));
     }
 }

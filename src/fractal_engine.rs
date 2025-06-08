@@ -2,16 +2,54 @@ use std::time::Duration;
 
 use crate::complex::Complex;
 
+#[derive(Copy, Clone)]
 pub struct FractalContext<T> {
     pub res: (u32, u32),
-    pub start: Complex<T>, // up top
-    pub end: Complex<T>,   // down bottom
+    pub start: Complex<T>, // up left
+    pub end: Complex<T>,   // down right
+}
+
+impl Default for FractalContext<f32> {
+    fn default() -> Self {
+        Self {
+            res: (800, 600),
+            start: Complex::new(-1.66, 1.0),
+            end: Complex::new(1.0, -1.0),
+        }
+    }
+}
+
+pub enum FractalAction {
+    Shutdown,
+    Reload,
+}
+
+pub enum FractalInfoNotif {
+    ReloadTime(Duration),
+}
+
+pub struct FractalInfos {
+    pub reload_time: Option<Duration>,
+}
+
+impl FractalInfos {
+    pub fn new() -> Self {
+        Self { reload_time: None }
+    }
+
+    pub fn fuse_together(&mut self, other: &FractalInfos) {
+        self.reload_time = other.reload_time.or(self.reload_time);
+    }
 }
 
 pub trait FractalEngine {
-    fn reload(&mut self) -> Result<std::time::Duration, Box<dyn std::error::Error>>;
+    fn reload(&mut self);
 
     fn render(&mut self);
 
-    fn deinitialize(&mut self);
+    fn shutdown(&mut self);
+
+    fn get_ctx(&self) -> FractalContext<f64>;
+
+    fn get_infos(&self) -> FractalInfos;
 }
