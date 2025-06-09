@@ -1,12 +1,11 @@
 use std::time::Duration;
 
 use eframe::egui;
-use egui::{RichText, Vec2};
+use egui::RichText;
 use mandelbread::{
-    complex::Complex,
-    engines::sfml_engine::SfmlEngine,
-    fractal_engine::{FractalContext, FractalEngine, FractalInfos},
+    complex::Complex, engines::sfml_engine::SfmlEngine, fractal_engine::FractalEngine,
 };
+use num::complex::Complex64;
 
 #[derive(PartialEq, Eq)]
 enum SelectedEngine {
@@ -16,13 +15,15 @@ enum SelectedEngine {
 pub struct GuiWrapper {
     selected_engine: SelectedEngine,
     sfml_engine: SfmlEngine,
+    sfml_engine_enabled: bool,
 }
 
 impl Default for GuiWrapper {
     fn default() -> Self {
         Self {
             selected_engine: SelectedEngine::Sfml,
-            sfml_engine: SfmlEngine::spawn(),
+            sfml_engine: SfmlEngine::new(),
+            sfml_engine_enabled: true,
         }
     }
 }
@@ -37,6 +38,16 @@ impl GuiWrapper {
         ui.heading("SFML Engine");
 
         if ui
+            .checkbox(&mut self.sfml_engine_enabled, "Enabled")
+            .clicked()
+        {
+            match self.sfml_engine_enabled {
+                true => self.sfml_engine.commence(),
+                false => self.sfml_engine.shutdown(),
+            }
+        }
+
+        if ui
             .button(RichText::new("Reload").size(32.0).strong())
             .clicked()
         {
@@ -45,16 +56,16 @@ impl GuiWrapper {
 
         ui.horizontal(|ui| {
             if ui.button("Left").clicked() {
-                self.sfml_engine.move_view(Complex::new(-1.0, 0.0))
+                self.sfml_engine.move_view(Complex64::new(-1.0, 0.0))
             }
             if ui.button("Up").clicked() {
-                self.sfml_engine.move_view(Complex::new(0.0, 1.0));
+                self.sfml_engine.move_view(Complex64::new(0.0, 1.0));
             }
             if ui.button("Down").clicked() {
-                self.sfml_engine.move_view(Complex::new(0.0, -1.0));
+                self.sfml_engine.move_view(Complex64::new(0.0, -1.0));
             }
             if ui.button("Right").clicked() {
-                self.sfml_engine.move_view(Complex::new(1.0, 0.0));
+                self.sfml_engine.move_view(Complex64::new(1.0, 0.0));
             }
         });
     }
