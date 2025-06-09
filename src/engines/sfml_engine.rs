@@ -1,4 +1,3 @@
-use core::num;
 use std::{
     sync::{
         Arc, Mutex,
@@ -45,11 +44,11 @@ macro_rules! generate_reload_float {
 
             for x in 0..ctx_val.res.0 {
                 for y in 0..ctx_val.res.1 {
-                    let c: Complex32 = utils::map_between_f32(ctx_val.res, start_t, end_t, (x, y));
+                    let c = utils::map_between_f32(ctx_val.res, start_t, end_t, (x, y));
                     let mut n = c;
                     let mut distance = 0.0;
                     for _ in 1..=99 {
-                        utils::fsq_add(&mut n, c);
+                        utils::fsq_add_f32(&mut n, c);
                         distance = n.l1_norm();
                         if distance >= 100.0 {
                             break;

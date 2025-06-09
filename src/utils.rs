@@ -1,5 +1,3 @@
-use std::ops::{Add, Div};
-
 use num::{
     Complex, Float, FromPrimitive, One, ToPrimitive, Zero,
     complex::{Complex32, ComplexFloat},
@@ -134,5 +132,12 @@ where
     (slf.re, slf.im) = (
         slf.re * slf.re - slf.im * slf.im + c.re,
         <T as FromPrimitive>::from_f32(2.0).unwrap() * slf.re * slf.im + c.im,
+    )
+}
+#[inline]
+pub fn fsq_add_f32(slf: &mut Complex<f32>, c: Complex<f32>) {
+    (slf.re, slf.im) = (
+        slf.re * slf.re - slf.im * slf.im + c.re,
+        2.0 * slf.re * slf.im + c.im,
     )
 }
