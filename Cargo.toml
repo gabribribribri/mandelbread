@@ -8,3 +8,10 @@ eframe = "0.31.1"
 egui = "0.31.1"
 num = "0.4.3"
 sfml = "0.24.0"
+
+[profile.release]
+debug = "line-tables-only" # Or `true` for full debug info
+overflow-checks = false # Disable if not needed for profiling
+
+[build]
+rustflags = ["-C", "force-frame-pointers=yes"]
