@@ -2,9 +2,7 @@ use std::time::Duration;
 
 use eframe::egui;
 use egui::RichText;
-use mandelbread::{
-    complex::Complex, engines::sfml_engine::SfmlEngine, fractal_engine::FractalEngine,
-};
+use mandelbread::{engines::sfml_engine::SfmlEngine, fractal_engine::FractalEngine};
 use num::complex::Complex64;
 
 #[derive(PartialEq, Eq)]
