@@ -1,14 +1,14 @@
-use std::fmt;
+use std::{fmt, time::Duration};
 
-use rug::{Complex, Float};
+use rug;
 
 const FRACTAL_CONTEXT_COMPLEX_PRECISION: u32 = 256;
 
 #[derive(Clone)]
 pub struct FractalContext {
     pub res: (u32, u32),
-    pub center: Complex,
-    pub window: Complex, // window.re : length window
+    pub center: rug::Complex,
+    pub window: rug::Complex, // window.re : length window
     pub backend: FractalBackend,
 }
 
@@ -22,8 +22,10 @@ pub enum FractalNotif {
     Commence(FractalContext),
     Shutdown,
     Reload,
-    Move(Complex),
+    ReloadTime(Duration),
+    Move(rug::Complex),
     Zoom(f32),
+    Resize(u32, u32),
 }
 
 pub enum FractalEngineError {
@@ -34,8 +36,8 @@ impl Default for FractalContext {
     fn default() -> Self {
         Self {
             res: (800, 600),
-            center: Complex::with_val(FRACTAL_CONTEXT_COMPLEX_PRECISION, 0.0),
-            window: Complex::with_val(FRACTAL_CONTEXT_COMPLEX_PRECISION, (2.66, 2.0)),
+            center: rug::Complex::with_val(FRACTAL_CONTEXT_COMPLEX_PRECISION, 0.0),
+            window: rug::Complex::with_val(FRACTAL_CONTEXT_COMPLEX_PRECISION, (2.66, 2.0)),
             backend: FractalBackend::F32,
         }
     }
@@ -48,7 +50,7 @@ pub trait FractalEngine {
 
     fn reload(&mut self) -> Result<(), FractalEngineError>;
 
-    fn move_view(&mut self, translation: Complex) -> Result<(), FractalEngineError>;
+    fn move_view(&mut self, translation: rug::Complex) -> Result<(), FractalEngineError>;
 
     fn zoom_view(&mut self, zoom: f32) -> Result<(), FractalEngineError>;
 

@@ -1,3 +1,4 @@
+mod fractal_complex;
 mod fractal_engine;
 mod gui_wrapper;
 mod sfml_engine;
