@@ -1,8 +1,15 @@
-use std::{fmt, time::Duration};
+use std::time::Duration;
 
 use rug;
 
-const FRACTAL_CONTEXT_COMPLEX_PRECISION: u32 = 256;
+const FRCTL_CTX_CMPLX_PREC: u32 = 256;
+
+pub mod lodiv {
+    pub const QUALITY: u32 = 1;
+    pub const FAST: u32 = 5;
+    pub const FASTER: u32 = 10;
+    pub const FASTEST: u32 = 25;
+}
 
 #[derive(Clone)]
 pub struct FractalContext {
@@ -24,10 +31,12 @@ pub enum FractalNotif {
     Reload,
     ReloadTime(Duration),
     Move(rug::Complex),
+    ChangeView(rug::Complex),
     Zoom(f32),
-    Resize(u32, u32),
+    ChangeResolution(u32, u32),
 }
 
+#[derive(Debug)]
 pub enum FractalEngineError {
     SendError,
 }
@@ -36,8 +45,8 @@ impl Default for FractalContext {
     fn default() -> Self {
         Self {
             res: (800, 600),
-            center: rug::Complex::with_val(FRACTAL_CONTEXT_COMPLEX_PRECISION, 0.0),
-            window: rug::Complex::with_val(FRACTAL_CONTEXT_COMPLEX_PRECISION, (2.66, 2.0)),
+            center: rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, -0.5),
+            window: rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, (2.66, 2.0)),
             backend: FractalBackend::F32,
         }
     }

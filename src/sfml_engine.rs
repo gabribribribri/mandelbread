@@ -1,15 +1,16 @@
 use std::{
-    sync::mpsc::{self, Receiver, SendError, Sender, TryRecvError},
-    thread::{self, spawn},
+    sync::mpsc::{self, Receiver, Sender, TryRecvError},
+    thread,
     time::{Duration, Instant},
 };
 
 use egui::{RichText, Ui};
-use rug;
+use rug::{self, Assign};
 use sfml::{
     cpp::FBox,
     graphics::{
-        Color, FloatRect, Image, IntRect, RenderTarget, RenderWindow, Sprite, Texture, View,
+        Color, FloatRect, Image, IntRect, RenderTarget, RenderWindow, Sprite, Texture,
+        Transformable, View,
     },
     window::{ContextSettings, Event, Style},
 };
@@ -18,6 +19,7 @@ use crate::{
     fractal_complex::{Complex, FractalComplex},
     fractal_engine::{
         FractalBackend, FractalContext, FractalEngine, FractalEngineError, FractalNotif,
+        lodiv::{self, FASTER},
     },
 };
 
@@ -26,7 +28,8 @@ pub struct SfmlEngine {
     notif_rx: Receiver<FractalNotif>,
     ctx: FractalContext,
 
-    reload_time: Duration,
+    reload_dur: Duration,
+    engine_enabled: bool,
 }
 
 pub struct SfmlEngineInternal<'a> {
@@ -55,7 +58,8 @@ impl SfmlEngine {
             notif_tx: ext_tx,
             notif_rx: ext_rx,
             ctx: fractal_ctx,
-            reload_time: Duration::ZERO,
+            reload_dur: Duration::ZERO,
+            engine_enabled: true,
         }
     }
 
@@ -94,13 +98,14 @@ impl SfmlEngine {
         }
     }
 
-    fn receive_notifs(&mut self) {
+    fn handle_notifs(&mut self) {
         while let Ok(notif) = self.notif_rx.try_recv() {
             match notif {
-                FractalNotif::ReloadTime(dur) => self.reload_time = dur,
-                FractalNotif::Resize(width, height) => self.ctx.res = (width, height),
-                FractalNotif::Move(trsln) => self.ctx.center += trsln,
+                FractalNotif::ReloadTime(dur) => self.reload_dur = dur,
+                FractalNotif::ChangeResolution(width, height) => self.ctx.res = (width, height),
+                FractalNotif::Move(trsln) => self.ctx.center = trsln,
                 FractalNotif::Zoom(zoom) => self.ctx.window *= zoom,
+                FractalNotif::ChangeView(view) => self.ctx.window = view,
                 _ => panic!("Shouldn't have received that"),
             }
         }
@@ -149,7 +154,12 @@ impl FractalEngine for SfmlEngine {
     }
 
     fn zoom_view(&mut self, zoom: f32) -> Result<(), FractalEngineError> {
-        match self.notif_tx.send(FractalNotif::Zoom(zoom)) {
+        self.ctx.window *= zoom;
+
+        match self
+            .notif_tx
+            .send(FractalNotif::ChangeView(self.ctx.window.clone()))
+        {
             Ok(_) => Ok(()),
             Err(e) => {
                 println!("Cannot zoom : {}", e);
@@ -162,20 +172,28 @@ impl FractalEngine for SfmlEngine {
         ui.heading("SFML Engine");
         ui.separator();
 
+        if ui.checkbox(&mut self.engine_enabled, "Enabled").clicked() {
+            match self.engine_enabled {
+                true => self.commence(),
+                false => self.shutdown(),
+            }
+            .unwrap()
+        }
+
         if ui
             .button(RichText::new("RELOAD").size(12.0).extra_letter_spacing(3.0))
             .clicked()
         {
-            self.notif_tx.send(FractalNotif::Reload).unwrap()
+            self.reload().unwrap()
         }
     }
 
     fn gui_bottom_panel(&mut self, ui: &mut Ui) {
-        self.receive_notifs();
+        self.handle_notifs();
 
         ui.horizontal(|ui| {
             ui.label(RichText::new("Reload Time :").strong());
-            ui.label(format!("{:?}", self.reload_time));
+            ui.label(format!("{:?}", self.reload_dur));
         });
 
         ui.horizontal(|ui| {
@@ -203,30 +221,33 @@ impl FractalEngine for SfmlEngine {
 impl<'a> SfmlEngineInternal<'a> {
     fn run_until_end(mut self) {
         while self.win.is_open() {
-            self.handle_events();
-            self.handle_notifs();
-            self.render();
+            self.handle_events_internal();
+            self.handle_notifs_internal();
+            self.render_internal();
         }
     }
 
-    fn handle_events(&mut self) {
+    fn handle_events_internal(&mut self) {
         while let Some(event) = self.win.poll_event() {
             match event {
-                Event::Closed => self.shutdown(),
-                Event::Resized { width, height } => self.resize(width, height),
+                Event::Closed => self.shutdown_internal(),
+                Event::Resized { width, height } => self.resize_internal(width, height),
                 _ => (),
             }
         }
     }
 
-    fn handle_notifs(&mut self) {
+    fn handle_notifs_internal(&mut self) {
         match self.notif_rx.try_recv() {
             Ok(notif) => match notif {
-                FractalNotif::Shutdown => self.shutdown(),
-                FractalNotif::Reload => self.reload(),
-                FractalNotif::Move(trsln) => self.move_view(trsln),
-                FractalNotif::Zoom(zoom) => self.zoom_view(zoom),
-                FractalNotif::Resize(width, height) => self.resize(width, height),
+                FractalNotif::Shutdown => self.shutdown_internal(),
+                FractalNotif::Reload => self.choose_reload_internal(lodiv::QUALITY),
+                FractalNotif::Move(trsln) => self.move_view_internal(trsln),
+                FractalNotif::Zoom(zoom) => self.zoom_view_internal(zoom),
+                FractalNotif::ChangeResolution(width, height) => {
+                    self.resize_internal(width, height)
+                }
+                FractalNotif::ChangeView(view) => self.set_view_internal(view),
                 FractalNotif::Commence(_) => panic!("Uh bro I'm already running"),
                 FractalNotif::ReloadTime(_) => {
                     panic!("I am not supposed to get back a reload time")
@@ -237,38 +258,59 @@ impl<'a> SfmlEngineInternal<'a> {
         }
     }
 
-    fn render(&mut self) {
-        let sprite = Sprite::with_texture(&self.texture);
+    fn render_internal(&mut self) {
+        let mut sprite = Sprite::with_texture(&self.texture);
+
         self.win.clear(Color::CYAN);
         self.win.draw(&sprite);
         self.win.display();
     }
 
-    fn shutdown(&mut self) {
+    fn shutdown_internal(&mut self) {
         self.win.close();
     }
 
-    fn resize(&mut self, width: u32, height: u32) {
+    fn resize_internal(&mut self, width: u32, height: u32) {
         self.win.set_view(
             &*View::from_rect(FloatRect::new(0.0, 0.0, width as f32, height as f32)).unwrap(),
         );
 
         self.ctx.res = (width, height);
 
+        let new_win_imag = self.ctx.window.real().clone() * (height as f32 / width as f32);
+        self.ctx.window.mut_imag().assign(new_win_imag);
+
         self.notif_tx
-            .send(FractalNotif::Resize(width, height))
+            .send(FractalNotif::ChangeResolution(width, height))
             .unwrap();
+
+        self.notif_tx
+            .send(FractalNotif::ChangeView(self.ctx.window.clone()))
+            .unwrap();
+
+        // self.choose_reload_internal(lodiv::FAST);
     }
 
-    fn move_view(&mut self, translation: rug::Complex) {}
+    fn move_view_internal(&mut self, translation: rug::Complex) {
+        self.ctx.center += translation;
+        // self.choose_reload_internal(lodiv::FAST);
+    }
 
-    fn zoom_view(&mut self, zoom: f32) {}
+    fn zoom_view_internal(&mut self, factor: f32) {
+        self.ctx.window *= factor;
+        // self.choose_reload_internal(lodiv::FAST);
+    }
 
-    fn reload(&mut self) {
+    fn set_view_internal(&mut self, view: rug::Complex) {
+        self.ctx.window = view;
+        // self.choose_reload_internal(lodiv::FAST);
+    }
+
+    fn choose_reload_internal(&mut self, lodiv: u32) {
         let now = Instant::now();
 
         match self.ctx.backend {
-            FractalBackend::F32 => self.reload_internal::<Complex<f32>>(),
+            FractalBackend::F32 => self.reload_internal::<Complex<f32>>(lodiv),
             // FractalBackend::F64 => self.reload_internal::<f64>(),
             _ => panic!("Is not implemented yet !!"),
         }
@@ -278,20 +320,18 @@ impl<'a> SfmlEngineInternal<'a> {
             .unwrap()
     }
 
-    fn reload_internal<T: FractalComplex>(&mut self)
-    // where
-    //     <T as FractalComplex>::FloatType: std::fmt::Debug,
-    {
+    fn reload_internal<T: FractalComplex>(&mut self, lodiv: u32) {
+        let res_lodiv = (self.ctx.res.0 / lodiv, self.ctx.res.1 / lodiv);
+
         let center_as_t = T::from_cmplx(&self.ctx.center);
         let window_as_t = T::from_cmplx(&self.ctx.window);
 
-        let res_as_t = T::from_u32_pair(self.ctx.res);
+        let res_as_t = T::from_u32_pair(res_lodiv);
 
-        let mut new_image =
-            Image::new_solid(self.ctx.res.0, self.ctx.res.1, Color::MAGENTA).unwrap();
+        let mut new_image = Image::new_solid(res_lodiv.0, res_lodiv.1, Color::MAGENTA).unwrap();
 
-        for x in 0..self.ctx.res.0 {
-            for y in 0..self.ctx.res.1 {
+        for x in 0..res_lodiv.0 {
+            for y in 0..res_lodiv.1 {
                 let c = T::map_pixel_value(
                     res_as_t,
                     center_as_t,

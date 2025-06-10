@@ -1,7 +1,4 @@
-use std::{
-    fmt::Debug,
-    ops::{Add, Div, Mul, Sub},
-};
+use std::ops::{Add, Div, Mul, Sub};
 
 use rug;
 use sfml::graphics::Color;
