@@ -5,8 +5,8 @@ use sfml::graphics::Color;
 
 #[derive(Clone, Copy)]
 pub struct Complex<T> {
-    re: T,
-    im: T,
+    pub re: T,
+    pub im: T,
 }
 
 pub trait FractalComplex
@@ -25,8 +25,6 @@ where
     fn im(self) -> Self::FloatType;
 
     fn new(re: Self::FloatType, im: Self::FloatType) -> Self;
-
-    fn val_0() -> Self;
 
     fn float_val_0() -> Self::FloatType;
 
@@ -117,11 +115,6 @@ impl FractalComplex for Complex<f32> {
     #[inline]
     fn new(re: Self::FloatType, im: Self::FloatType) -> Self {
         Self { re, im }
-    }
-
-    #[inline(always)]
-    fn val_0() -> Self {
-        Self { re: 0.0, im: 0.0 }
     }
 
     #[inline(always)]

@@ -5,7 +5,11 @@ use std::{
 };
 
 use egui::{RichText, Ui};
-use rug::{self, Assign};
+use rug::{
+    Assign,
+    az::OverflowingAs,
+    ops::{AddFrom, MulFrom},
+};
 use sfml::{
     cpp::FBox,
     graphics::{
@@ -19,7 +23,7 @@ use crate::{
     fractal_complex::{Complex, FractalComplex},
     fractal_engine::{
         FractalBackend, FractalContext, FractalEngine, FractalEngineError, FractalNotif,
-        lodiv::{self, FASTER},
+        lodiv::{self},
     },
 };
 
@@ -103,9 +107,9 @@ impl SfmlEngine {
             match notif {
                 FractalNotif::ReloadTime(dur) => self.reload_dur = dur,
                 FractalNotif::ChangeResolution(width, height) => self.ctx.res = (width, height),
-                FractalNotif::Move(trsln) => self.ctx.center = trsln,
-                FractalNotif::Zoom(zoom) => self.ctx.window *= zoom,
-                FractalNotif::ChangeView(view) => self.ctx.window = view,
+                // FractalNotif::Move(trsln) => self.move_window(trsln).unwrap(), // à quel moment je reçois ça même ???
+                // FractalNotif::Zoom(zoom) => self.ctx.window *= zoom, // et ça pareil
+                FractalNotif::ChangeWindow(view) => self.ctx.window = view,
                 _ => panic!("Shouldn't have received that"),
             }
         }
@@ -133,6 +137,18 @@ impl FractalEngine for SfmlEngine {
         }
     }
 
+    fn reset_view(&mut self) -> Result<(), FractalEngineError> {
+        self.ctx = FractalContext::default();
+
+        match self.notif_tx.send(FractalNotif::ResetView) {
+            Ok(_) => Ok(()),
+            Err(_) => {
+                println!("TAbArnak jpa po reset la view la comment ksa spass ??");
+                Err(FractalEngineError::SendError)
+            }
+        }
+    }
+
     fn reload(&mut self) -> Result<(), FractalEngineError> {
         match self.notif_tx.send(FractalNotif::Reload) {
             Ok(_) => Ok(()),
@@ -143,10 +159,16 @@ impl FractalEngine for SfmlEngine {
         }
     }
 
-    fn move_view(&mut self, translation: rug::Complex) -> Result<(), FractalEngineError> {
-        self.ctx.center += &translation;
+    fn move_window(&mut self, trsln: Complex<f32>) -> Result<(), FractalEngineError> {
+        // WARNING CODE REPETITION
+        let mut real_offset = self.ctx.window.real().clone();
+        real_offset.mul_from(0.5 * trsln.re);
+        let mut imag_offset = self.ctx.window.imag().clone();
+        imag_offset.mul_from(-0.5 * trsln.im); // why minus ??
+        self.ctx.center.add_from(real_offset);
+        self.ctx.center.mut_imag().add_from(imag_offset);
 
-        match self.notif_tx.send(FractalNotif::Move(translation)) {
+        match self.notif_tx.send(FractalNotif::Move(trsln)) {
             Ok(_) => Ok(()),
             Err(e) => {
                 println!("Cannot move the view : {}", e);
@@ -158,10 +180,7 @@ impl FractalEngine for SfmlEngine {
     fn zoom_view(&mut self, zoom: f32) -> Result<(), FractalEngineError> {
         self.ctx.window *= zoom;
 
-        match self
-            .notif_tx
-            .send(FractalNotif::ChangeView(self.ctx.window.clone()))
-        {
+        match self.notif_tx.send(FractalNotif::Zoom(zoom)) {
             Ok(_) => Ok(()),
             Err(e) => {
                 println!("Cannot zoom : {}", e);
@@ -203,7 +222,11 @@ impl FractalEngine for SfmlEngine {
         ui.horizontal(|ui| {
             ui.label("Quality : ");
             if ui
-                .add(egui::DragValue::new(&mut self.ctx.lodiv).range(1..=25))
+                .add(
+                    egui::DragValue::new(&mut self.ctx.lodiv)
+                        .range(1..=25)
+                        .speed(0.04),
+                )
                 .dragged()
             {
                 self.change_lodiv(self.ctx.lodiv).unwrap();
@@ -233,6 +256,36 @@ impl FractalEngine for SfmlEngine {
                 self.change_lodiv(lodiv::FASTEST).unwrap();
             }
         });
+
+        ui.horizontal(|ui| {
+            ui.label("Movements :");
+            if ui.button("Left").clicked() {
+                self.move_window(Complex::new(-0.2, 0.0)).unwrap();
+            }
+            if ui.button("Down").clicked() {
+                self.move_window(Complex::new(0.0, -0.2)).unwrap();
+            }
+            if ui.button("Up").clicked() {
+                self.move_window(Complex::new(0.0, 0.2)).unwrap();
+            }
+            if ui.button("Right").clicked() {
+                self.move_window(Complex::new(0.2, 0.0)).unwrap();
+            }
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Zoom : ");
+            if ui.button("Outside").clicked() {
+                self.zoom_view(1.1).unwrap();
+            }
+            if ui.button("Inside").clicked() {
+                self.zoom_view(0.9).unwrap();
+            }
+        });
+
+        if ui.button("RESET VIEW").clicked() {
+            self.reset_view().unwrap();
+        }
     }
 
     fn gui_bottom_panel(&mut self, ui: &mut Ui) {
@@ -289,12 +342,13 @@ impl<'a> SfmlEngineInternal<'a> {
             Ok(notif) => match notif {
                 FractalNotif::Shutdown => self.shutdown_internal(),
                 FractalNotif::Reload => self.choose_reload_internal(),
-                FractalNotif::Move(trsln) => self.ctx.center += trsln,
-                FractalNotif::Zoom(zoom) => self.ctx.window *= zoom,
+                FractalNotif::ResetView => self.ctx = FractalContext::default(),
+                FractalNotif::Move(trsln) => self.move_window_internal(trsln),
+                FractalNotif::Zoom(zoom) => self.zoom_view_internal(zoom),
                 FractalNotif::ChangeResolution(width, height) => {
                     self.resize_internal(width, height)
                 }
-                FractalNotif::ChangeView(window) => self.ctx.window = window,
+                FractalNotif::ChangeWindow(window) => self.ctx.window = window,
                 FractalNotif::ChangeLodiv(lodiv) => self.ctx.lodiv = lodiv,
                 FractalNotif::Commence(_) => panic!("Uh bro I'm already running"),
                 FractalNotif::ReloadTime(_) => {
@@ -337,8 +391,26 @@ impl<'a> SfmlEngineInternal<'a> {
             .unwrap();
 
         self.notif_tx
-            .send(FractalNotif::ChangeView(self.ctx.window.clone()))
+            .send(FractalNotif::ChangeWindow(self.ctx.window.clone()))
             .unwrap();
+    }
+
+    fn move_window_internal(&mut self, trsln: Complex<f32>) {
+        // WARNING CODE REPETITION
+        let mut real_offset = self.ctx.window.real().clone();
+        real_offset.mul_from(0.5 * trsln.re);
+        let mut imag_offset = self.ctx.window.imag().clone();
+        imag_offset.mul_from(-0.5 * trsln.im);
+        self.ctx.center.add_from(real_offset);
+        self.ctx.center.mut_imag().add_from(imag_offset);
+
+        self.choose_reload_internal();
+    }
+
+    fn zoom_view_internal(&mut self, zoom: f32) {
+        self.ctx.window *= zoom;
+
+        self.choose_reload_internal();
     }
 
     fn choose_reload_internal(&mut self) {

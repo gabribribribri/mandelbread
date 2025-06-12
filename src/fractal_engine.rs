@@ -2,6 +2,8 @@ use std::time::Duration;
 
 use rug;
 
+use crate::fractal_complex::Complex;
+
 const FRCTL_CTX_CMPLX_PREC: u32 = 256;
 
 pub mod lodiv {
@@ -29,10 +31,11 @@ pub enum FractalBackend {
 pub enum FractalNotif {
     Commence(FractalContext),
     Shutdown,
+    ResetView,
     Reload,
     ReloadTime(Duration),
-    Move(rug::Complex),
-    ChangeView(rug::Complex),
+    Move(Complex<f32>),
+    ChangeWindow(rug::Complex),
     Zoom(f32),
     ChangeResolution(u32, u32),
     ChangeLodiv(u32),
@@ -60,9 +63,11 @@ pub trait FractalEngine {
 
     fn shutdown(&mut self) -> Result<(), FractalEngineError>;
 
+    fn reset_view(&mut self) -> Result<(), FractalEngineError>;
+
     fn reload(&mut self) -> Result<(), FractalEngineError>;
 
-    fn move_view(&mut self, translation: rug::Complex) -> Result<(), FractalEngineError>;
+    fn move_window(&mut self, translation: Complex<f32>) -> Result<(), FractalEngineError>;
 
     fn zoom_view(&mut self, zoom: f32) -> Result<(), FractalEngineError>;
 
