@@ -5,10 +5,10 @@ use rug;
 const FRCTL_CTX_CMPLX_PREC: u32 = 256;
 
 pub mod lodiv {
-    pub const QUALITY: u32 = 1;
-    pub const FAST: u32 = 5;
-    pub const FASTER: u32 = 10;
-    pub const FASTEST: u32 = 25;
+    pub const HIGHEST: u32 = 1;
+    pub const FAST: u32 = 2;
+    pub const FASTER: u32 = 5;
+    pub const FASTEST: u32 = 10;
 }
 
 #[derive(Clone)]
@@ -17,6 +17,7 @@ pub struct FractalContext {
     pub center: rug::Complex,
     pub window: rug::Complex, // window.re : length window
     pub backend: FractalBackend,
+    pub lodiv: u32,
 }
 
 #[derive(Copy, Clone)]
@@ -34,6 +35,7 @@ pub enum FractalNotif {
     ChangeView(rug::Complex),
     Zoom(f32),
     ChangeResolution(u32, u32),
+    ChangeLodiv(u32),
 }
 
 #[derive(Debug)]
@@ -48,6 +50,7 @@ impl Default for FractalContext {
             center: rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, -0.5),
             window: rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, (2.66, 2.0)),
             backend: FractalBackend::F32,
+            lodiv: lodiv::HIGHEST,
         }
     }
 }
@@ -62,6 +65,8 @@ pub trait FractalEngine {
     fn move_view(&mut self, translation: rug::Complex) -> Result<(), FractalEngineError>;
 
     fn zoom_view(&mut self, zoom: f32) -> Result<(), FractalEngineError>;
+
+    fn change_lodiv(&mut self, lodiv: u32) -> Result<(), FractalEngineError>;
 
     fn gui_bottom_panel(&mut self, ui: &mut egui::Ui);
 

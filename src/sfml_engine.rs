@@ -144,6 +144,8 @@ impl FractalEngine for SfmlEngine {
     }
 
     fn move_view(&mut self, translation: rug::Complex) -> Result<(), FractalEngineError> {
+        self.ctx.center += &translation;
+
         match self.notif_tx.send(FractalNotif::Move(translation)) {
             Ok(_) => Ok(()),
             Err(e) => {
@@ -168,6 +170,17 @@ impl FractalEngine for SfmlEngine {
         }
     }
 
+    fn change_lodiv(&mut self, lodiv: u32) -> Result<(), FractalEngineError> {
+        self.ctx.lodiv = lodiv;
+        match self.notif_tx.send(FractalNotif::ChangeLodiv(lodiv)) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                println!("Cannot change lodiv : {}", e);
+                Err(FractalEngineError::SendError)
+            }
+        }
+    }
+
     fn gui_central_panel(&mut self, ui: &mut Ui) {
         ui.heading("SFML Engine");
         ui.separator();
@@ -186,6 +199,40 @@ impl FractalEngine for SfmlEngine {
         {
             self.reload().unwrap()
         }
+
+        ui.horizontal(|ui| {
+            ui.label("Quality : ");
+            if ui
+                .add(egui::DragValue::new(&mut self.ctx.lodiv).range(1..=25))
+                .dragged()
+            {
+                self.change_lodiv(self.ctx.lodiv).unwrap();
+            }
+            if ui
+                .selectable_label(self.ctx.lodiv == lodiv::HIGHEST, "HIGHEST")
+                .clicked()
+            {
+                self.change_lodiv(lodiv::HIGHEST).unwrap();
+            }
+            if ui
+                .selectable_label(self.ctx.lodiv == lodiv::FAST, "FAST")
+                .clicked()
+            {
+                self.change_lodiv(lodiv::FAST).unwrap();
+            }
+            if ui
+                .selectable_label(self.ctx.lodiv == lodiv::FASTER, "FASTER")
+                .clicked()
+            {
+                self.change_lodiv(lodiv::FASTER).unwrap();
+            }
+            if ui
+                .selectable_label(self.ctx.lodiv == lodiv::FASTEST, "FASTEST")
+                .clicked()
+            {
+                self.change_lodiv(lodiv::FASTEST).unwrap();
+            }
+        });
     }
 
     fn gui_bottom_panel(&mut self, ui: &mut Ui) {
@@ -241,13 +288,14 @@ impl<'a> SfmlEngineInternal<'a> {
         match self.notif_rx.try_recv() {
             Ok(notif) => match notif {
                 FractalNotif::Shutdown => self.shutdown_internal(),
-                FractalNotif::Reload => self.choose_reload_internal(lodiv::QUALITY),
-                FractalNotif::Move(trsln) => self.move_view_internal(trsln),
-                FractalNotif::Zoom(zoom) => self.zoom_view_internal(zoom),
+                FractalNotif::Reload => self.choose_reload_internal(),
+                FractalNotif::Move(trsln) => self.ctx.center += trsln,
+                FractalNotif::Zoom(zoom) => self.ctx.window *= zoom,
                 FractalNotif::ChangeResolution(width, height) => {
                     self.resize_internal(width, height)
                 }
-                FractalNotif::ChangeView(view) => self.set_view_internal(view),
+                FractalNotif::ChangeView(window) => self.ctx.window = window,
+                FractalNotif::ChangeLodiv(lodiv) => self.ctx.lodiv = lodiv,
                 FractalNotif::Commence(_) => panic!("Uh bro I'm already running"),
                 FractalNotif::ReloadTime(_) => {
                     panic!("I am not supposed to get back a reload time")
@@ -260,6 +308,10 @@ impl<'a> SfmlEngineInternal<'a> {
 
     fn render_internal(&mut self) {
         let mut sprite = Sprite::with_texture(&self.texture);
+        sprite.set_scale((
+            self.ctx.res.0 as f32 / sprite.texture_rect().width as f32,
+            self.ctx.res.1 as f32 / sprite.texture_rect().height as f32,
+        ));
 
         self.win.clear(Color::CYAN);
         self.win.draw(&sprite);
@@ -287,30 +339,13 @@ impl<'a> SfmlEngineInternal<'a> {
         self.notif_tx
             .send(FractalNotif::ChangeView(self.ctx.window.clone()))
             .unwrap();
-
-        // self.choose_reload_internal(lodiv::FAST);
     }
 
-    fn move_view_internal(&mut self, translation: rug::Complex) {
-        self.ctx.center += translation;
-        // self.choose_reload_internal(lodiv::FAST);
-    }
-
-    fn zoom_view_internal(&mut self, factor: f32) {
-        self.ctx.window *= factor;
-        // self.choose_reload_internal(lodiv::FAST);
-    }
-
-    fn set_view_internal(&mut self, view: rug::Complex) {
-        self.ctx.window = view;
-        // self.choose_reload_internal(lodiv::FAST);
-    }
-
-    fn choose_reload_internal(&mut self, lodiv: u32) {
+    fn choose_reload_internal(&mut self) {
         let now = Instant::now();
 
         match self.ctx.backend {
-            FractalBackend::F32 => self.reload_internal::<Complex<f32>>(lodiv),
+            FractalBackend::F32 => self.reload_internal::<Complex<f32>>(self.ctx.lodiv),
             // FractalBackend::F64 => self.reload_internal::<f64>(),
             _ => panic!("Is not implemented yet !!"),
         }
