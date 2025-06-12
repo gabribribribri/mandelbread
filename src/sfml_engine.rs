@@ -200,6 +200,18 @@ impl FractalEngine for SfmlEngine {
         }
     }
 
+    fn change_backend(&mut self, backend: FractalBackend) -> Result<(), FractalEngineError> {
+        self.ctx.backend = backend;
+
+        match self.notif_tx.send(FractalNotif::ChangeBackend(backend)) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                println!("Cannot change backend : {}", e);
+                Err(FractalEngineError::SendError)
+            }
+        }
+    }
+
     fn gui_central_panel(&mut self, ui: &mut Ui) {
         ui.heading("SFML Engine");
         ui.separator();
@@ -210,6 +222,20 @@ impl FractalEngine for SfmlEngine {
                 false => self.shutdown(),
             }
             .unwrap()
+        }
+
+        if ui
+            .radio_value(&mut self.ctx.backend, FractalBackend::F32, "32-bit float")
+            .clicked()
+        {
+            self.change_backend(FractalBackend::F32).unwrap();
+        }
+
+        if ui
+            .radio_value(&mut self.ctx.backend, FractalBackend::F64, "64-bit float")
+            .clicked()
+        {
+            self.change_backend(FractalBackend::F64).unwrap();
         }
 
         if ui
@@ -350,6 +376,7 @@ impl<'a> SfmlEngineInternal<'a> {
                 }
                 FractalNotif::ChangeWindow(window) => self.ctx.window = window,
                 FractalNotif::ChangeLodiv(lodiv) => self.ctx.lodiv = lodiv,
+                FractalNotif::ChangeBackend(be) => self.ctx.backend = be,
                 FractalNotif::Commence(_) => panic!("Uh bro I'm already running"),
                 FractalNotif::ReloadTime(_) => {
                     panic!("I am not supposed to get back a reload time")
@@ -418,7 +445,7 @@ impl<'a> SfmlEngineInternal<'a> {
 
         match self.ctx.backend {
             FractalBackend::F32 => self.reload_internal::<Complex<f32>>(self.ctx.lodiv),
-            // FractalBackend::F64 => self.reload_internal::<f64>(),
+            FractalBackend::F64 => self.reload_internal::<Complex<f64>>(self.ctx.lodiv),
             _ => panic!("Is not implemented yet !!"),
         }
 

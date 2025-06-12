@@ -9,8 +9,8 @@ const FRCTL_CTX_CMPLX_PREC: u32 = 256;
 pub mod lodiv {
     pub const HIGHEST: u32 = 1;
     pub const FAST: u32 = 2;
-    pub const FASTER: u32 = 5;
-    pub const FASTEST: u32 = 10;
+    pub const FASTER: u32 = 3;
+    pub const FASTEST: u32 = 5;
 }
 
 #[derive(Clone)]
@@ -22,7 +22,7 @@ pub struct FractalContext {
     pub lodiv: u32,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum FractalBackend {
     F32,
     F64,
@@ -39,6 +39,7 @@ pub enum FractalNotif {
     Zoom(f32),
     ChangeResolution(u32, u32),
     ChangeLodiv(u32),
+    ChangeBackend(FractalBackend),
 }
 
 #[derive(Debug)]
@@ -73,6 +74,7 @@ pub trait FractalEngine {
 
     fn change_lodiv(&mut self, lodiv: u32) -> Result<(), FractalEngineError>;
 
+    fn change_backend(&mut self, backend: FractalBackend) -> Result<(), FractalEngineError>;
     fn gui_bottom_panel(&mut self, ui: &mut egui::Ui);
 
     fn gui_central_panel(&mut self, ui: &mut egui::Ui);

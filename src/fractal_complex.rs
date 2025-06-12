@@ -179,3 +179,84 @@ impl FractalComplex for Complex<f32> {
         }
     }
 }
+
+impl FractalComplex for Complex<f64> {
+    type FloatType = f64;
+
+    #[inline(always)]
+    fn re(self) -> Self::FloatType {
+        self.re
+    }
+
+    #[inline(always)]
+    fn im(self) -> Self::FloatType {
+        self.im
+    }
+
+    #[inline]
+    fn new(re: Self::FloatType, im: Self::FloatType) -> Self {
+        Self { re, im }
+    }
+
+    #[inline(always)]
+    fn float_val_0() -> Self::FloatType {
+        0.0
+    }
+
+    #[inline(always)]
+    fn float_val_1() -> Self::FloatType {
+        1.0
+    }
+
+    #[inline(always)]
+    fn float_val_100() -> Self::FloatType {
+        100.0
+    }
+
+    #[inline(always)]
+    fn float_val_255() -> Self::FloatType {
+        255.0
+    }
+
+    #[inline]
+    fn fsq_add(&mut self, c: Self) {
+        (self.re, self.im) = (
+            self.re * self.re - self.im * self.im + c.re,
+            2.0 * self.re * self.im + c.im,
+        );
+    }
+
+    #[inline]
+    fn half(n: Self::FloatType) -> Self::FloatType {
+        n / 2.0
+    }
+
+    fn clamp(n: Self::FloatType, min: Self::FloatType, max: Self::FloatType) -> Self::FloatType {
+        n.clamp(min, max)
+    }
+
+    fn round_to_u8(n: Self::FloatType) -> u8 {
+        n.round() as u8
+    }
+
+    #[inline]
+    fn distance_origin(self) -> Self::FloatType {
+        self.re.abs() + self.im.abs()
+    }
+
+    #[inline]
+    fn from_cmplx(val: &rug::Complex) -> Self {
+        Complex {
+            re: val.real().to_f64(),
+            im: val.imag().to_f64(),
+        }
+    }
+
+    #[inline]
+    fn from_u32_pair(val: (u32, u32)) -> Self {
+        Complex {
+            re: val.0 as f64,
+            im: val.1 as f64,
+        }
+    }
+}
