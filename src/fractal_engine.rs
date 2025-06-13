@@ -1,10 +1,11 @@
 use std::time::Duration;
 
 use rug;
+use sfml::system::Vector2u;
 
 use crate::fractal_complex::Complex;
 
-const FRCTL_CTX_CMPLX_PREC: u32 = 256;
+pub const FRCTL_CTX_CMPLX_PREC: u32 = 256;
 
 pub mod lodiv {
     pub const HIGHEST: u32 = 1;
@@ -15,11 +16,13 @@ pub mod lodiv {
 
 #[derive(Clone)]
 pub struct FractalContext {
-    pub res: (u32, u32),
+    pub res: Vector2u,
     pub center: rug::Complex,
     pub window: rug::Complex, // window.re : length window
     pub backend: FractalBackend,
     pub lodiv: u32,
+    pub reload_dur: Duration,
+    pub engine_enabled: bool,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -29,17 +32,9 @@ pub enum FractalBackend {
 }
 
 pub enum FractalNotif {
-    Commence(FractalContext),
+    Commence,
     Shutdown,
-    ResetView,
     Reload,
-    ReloadTime(Duration),
-    Move(Complex<f32>),
-    ChangeWindow(rug::Complex),
-    Zoom(f32),
-    ChangeResolution(u32, u32),
-    ChangeLodiv(u32),
-    ChangeBackend(FractalBackend),
 }
 
 #[derive(Debug)]
@@ -50,11 +45,13 @@ pub enum FractalEngineError {
 impl Default for FractalContext {
     fn default() -> Self {
         Self {
-            res: (800, 600),
+            res: (800, 600).into(),
             center: rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, -0.5),
             window: rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, (2.66, 2.0)),
             backend: FractalBackend::F32,
             lodiv: lodiv::HIGHEST,
+            reload_dur: Duration::ZERO,
+            engine_enabled: true,
         }
     }
 }
@@ -75,6 +72,7 @@ pub trait FractalEngine {
     fn change_lodiv(&mut self, lodiv: u32) -> Result<(), FractalEngineError>;
 
     fn change_backend(&mut self, backend: FractalBackend) -> Result<(), FractalEngineError>;
+
     fn gui_bottom_panel(&mut self, ui: &mut egui::Ui);
 
     fn gui_central_panel(&mut self, ui: &mut egui::Ui);
