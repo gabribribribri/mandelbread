@@ -18,6 +18,7 @@ use sfml::{
         Color, FloatRect, Image, IntRect, RenderTarget, RenderWindow, Sprite, Texture,
         Transformable, View,
     },
+    system::Vector2u,
     window::{ContextSettings, Event, Style},
 };
 
@@ -37,7 +38,7 @@ pub struct SfmlEngine {
 pub struct SfmlEngineInternal<'a> {
     notif_rx: &'a Receiver<FractalNotif>,
     ctx_mx: Arc<Mutex<FractalContext>>,
-
+    // res: Vector2u,
     win: FBox<RenderWindow>,
     texture: FBox<Texture>,
 }
@@ -66,6 +67,7 @@ impl SfmlEngine {
                 FractalNotif::Commence => (), // Time to start...
                 FractalNotif::Shutdown => {
                     println!("BRO SHUT UP I'M ALREADY ASLEEP");
+                    continue;
                 }
                 _ => {
                     println!("IDGAF I'M NOT UP YET !");
@@ -87,12 +89,14 @@ impl SfmlEngine {
 
             let image = Image::new_solid(ctx.res.x, ctx.res.y, Color::MAGENTA).unwrap();
             let texture = Texture::from_image(&image, IntRect::default()).unwrap();
+            // let res = ctx.res;
 
             drop(ctx);
 
             let internal_engine = SfmlEngineInternal {
                 notif_rx: &rx,
                 ctx_mx: Arc::clone(&ctx_mx),
+                // res,
                 win,
                 texture,
             };
@@ -104,6 +108,7 @@ impl SfmlEngine {
 
 impl FractalEngine for SfmlEngine {
     fn commence(&self) -> Result<(), FractalEngineError> {
+        self.ctx_mx.lock().unwrap().engine_enabled = true;
         match self.notif_tx.send(FractalNotif::Commence) {
             Ok(_) => Ok(()),
             Err(e) => {
@@ -114,6 +119,7 @@ impl FractalEngine for SfmlEngine {
     }
 
     fn shutdown(&mut self) -> Result<(), FractalEngineError> {
+        self.ctx_mx.lock().unwrap().engine_enabled = false;
         match self.notif_tx.send(FractalNotif::Shutdown) {
             Ok(_) => Ok(()),
             Err(e) => {
@@ -145,7 +151,6 @@ impl FractalEngine for SfmlEngine {
     fn move_window(&mut self, trsln: Complex<f32>) -> Result<(), FractalEngineError> {
         let mut ctx = self.ctx_mx.lock().unwrap();
 
-        // WARNING CODE REPETITION
         let mut real_offset = ctx.window.real().clone();
         real_offset.mul_from(0.5 * trsln.re);
         let mut imag_offset = ctx.window.imag().clone();
@@ -348,11 +353,10 @@ impl<'a> SfmlEngineInternal<'a> {
 
     fn render_internal(&mut self) {
         // TODO FIX THIS LATER
-        let ctx = self.ctx_mx.lock().unwrap();
         let mut sprite = Sprite::with_texture(&self.texture);
         sprite.set_scale((
-            ctx.res.x as f32 / sprite.texture_rect().width as f32,
-            ctx.res.y as f32 / sprite.texture_rect().height as f32,
+            self.win.size().x as f32 / sprite.texture_rect().width as f32,
+            self.win.size().y as f32 / sprite.texture_rect().height as f32,
         ));
 
         self.win.clear(Color::CYAN);
