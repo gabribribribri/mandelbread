@@ -64,6 +64,9 @@ impl SfmlEngine {
         loop {
             match rx.recv().unwrap() {
                 FractalNotif::Commence => (), // Time to start...
+                FractalNotif::Shutdown => {
+                    println!("BRO SHUT UP I'M ALREADY ASLEEP");
+                }
                 _ => {
                     println!("IDGAF I'M NOT UP YET !");
                     continue;
@@ -124,7 +127,9 @@ impl FractalEngine for SfmlEngine {
         let mut ctx = self.ctx_mx.lock().unwrap();
         ctx.center = rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, -0.5);
         ctx.window = rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, (2.66, 2.0));
-        Ok(())
+
+        drop(ctx);
+        self.reload()
     }
 
     fn reload(&mut self) -> Result<(), FractalEngineError> {
@@ -148,7 +153,8 @@ impl FractalEngine for SfmlEngine {
         ctx.center.add_from(real_offset);
         ctx.center.mut_imag().add_from(imag_offset);
 
-        Ok(())
+        drop(ctx);
+        self.reload()
     }
 
     fn zoom_view(&mut self, zoom: f32) -> Result<(), FractalEngineError> {
@@ -372,18 +378,15 @@ impl<'a> SfmlEngineInternal<'a> {
             backend = ctx.backend;
         }
 
-        let now = Instant::now();
-
         match backend {
             FractalBackend::F32 => self.reload_internal::<Complex<f32>>(lodiv),
             FractalBackend::F64 => self.reload_internal::<Complex<f64>>(lodiv),
         }
-
-        // TODO FIX THERE ARE TWO MUTEXES UNWRAP IN THIS FUNCTION
-        self.ctx_mx.lock().unwrap().reload_dur = now.elapsed();
     }
 
     fn reload_internal<T: FractalComplex>(&mut self, lodiv: u32) {
+        let start = Instant::now();
+
         let mut ctx = self.ctx_mx.lock().unwrap();
 
         if ctx.res != self.win.size() {
@@ -435,5 +438,7 @@ impl<'a> SfmlEngineInternal<'a> {
         self.texture
             .load_from_image(&new_image, IntRect::default())
             .unwrap();
+
+        ctx.reload_dur = start.elapsed();
     }
 }

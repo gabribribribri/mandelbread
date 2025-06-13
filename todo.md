@@ -1,5 +1,4 @@
-- egui render into Fractal Trait
-- trait for FractalComplex
-- Remove the arc mutex
-- single Notification system
-- change the way coo are handled :\
+- Fix the 'enable' bug
+- move with mouse
+- multithreading
+- fix some late coding bullshit
