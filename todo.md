@@ -1,4 +1,2 @@
-- Fix the 'enable' bug
 - move with mouse
 - multithreading
-- fix some late coding bullshit

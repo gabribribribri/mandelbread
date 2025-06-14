@@ -133,8 +133,11 @@ impl FractalEngine for SfmlEngine {
         let mut ctx = self.ctx_mx.lock().unwrap();
         ctx.center = rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, -0.5);
         ctx.window = rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, (2.66, 2.0));
-
+        let mut new_real = ctx.window.real().clone();
+        new_real.mul_from(ctx.res.y as f32 / ctx.res.x as f32);
+        ctx.window.mut_imag().assign(new_real);
         drop(ctx);
+
         self.reload()
     }
 
@@ -169,16 +172,25 @@ impl FractalEngine for SfmlEngine {
         self.reload()
     }
 
-    fn change_lodiv(&mut self, lodiv: u32) -> Result<(), FractalEngineError> {
+    fn set_lodiv(&mut self, lodiv: u32) -> Result<(), FractalEngineError> {
         {
             self.ctx_mx.lock().unwrap().lodiv = lodiv;
         }
         self.reload()
     }
 
-    fn change_backend(&mut self, backend: FractalBackend) -> Result<(), FractalEngineError> {
+    fn set_backend(&mut self, backend: FractalBackend) -> Result<(), FractalEngineError> {
         {
             self.ctx_mx.lock().unwrap().backend = backend;
+        }
+        self.reload()
+    }
+
+    fn set_seq_iter(&mut self, seq_iter: u32) -> Result<(), FractalEngineError> {
+        // TODO it would be cool if I could reload here...
+        // nevermind, although it is squechy...
+        {
+            self.ctx_mx.lock().unwrap().seq_iter = seq_iter;
         }
         self.reload()
     }
@@ -204,22 +216,22 @@ impl FractalEngine for SfmlEngine {
             .radio_value(&mut ctx.backend, FractalBackend::F32, "32-bit float")
             .clicked()
         {
-            self.change_backend(FractalBackend::F32).unwrap();
+            self.set_backend(FractalBackend::F32).unwrap();
         }
 
         if ui
             .radio_value(&mut ctx.backend, FractalBackend::F64, "64-bit float")
             .clicked()
         {
-            self.change_backend(FractalBackend::F64).unwrap();
+            self.set_backend(FractalBackend::F64).unwrap();
         }
 
-        if ui
-            .button(RichText::new("RELOAD").size(12.0).extra_letter_spacing(3.0))
-            .clicked()
-        {
-            self.reload().unwrap()
-        }
+        ui.horizontal(|ui| {
+            ui.label("Sequence Iterations : ");
+            if ui.add(egui::DragValue::new(&mut ctx.seq_iter)).dragged() {
+                self.set_seq_iter(ctx.seq_iter).unwrap();
+            }
+        });
 
         ui.horizontal(|ui| {
             ui.label("Quality : ");
@@ -231,31 +243,31 @@ impl FractalEngine for SfmlEngine {
                 )
                 .dragged()
             {
-                self.change_lodiv(ctx.lodiv).unwrap();
+                self.set_lodiv(ctx.lodiv).unwrap();
             }
             if ui
                 .selectable_label(ctx.lodiv == lodiv::HIGHEST, "HIGHEST")
                 .clicked()
             {
-                self.change_lodiv(lodiv::HIGHEST).unwrap();
+                self.set_lodiv(lodiv::HIGHEST).unwrap();
             }
             if ui
                 .selectable_label(ctx.lodiv == lodiv::FAST, "FAST")
                 .clicked()
             {
-                self.change_lodiv(lodiv::FAST).unwrap();
+                self.set_lodiv(lodiv::FAST).unwrap();
             }
             if ui
                 .selectable_label(ctx.lodiv == lodiv::FASTER, "FASTER")
                 .clicked()
             {
-                self.change_lodiv(lodiv::FASTER).unwrap();
+                self.set_lodiv(lodiv::FASTER).unwrap();
             }
             if ui
                 .selectable_label(ctx.lodiv == lodiv::FASTEST, "FASTEST")
                 .clicked()
             {
-                self.change_lodiv(lodiv::FASTEST).unwrap();
+                self.set_lodiv(lodiv::FASTEST).unwrap();
             }
         });
 
@@ -284,6 +296,13 @@ impl FractalEngine for SfmlEngine {
                 self.zoom_view(0.9).unwrap();
             }
         });
+
+        if ui
+            .button(RichText::new("RELOAD").size(12.0).extra_letter_spacing(3.0))
+            .clicked()
+        {
+            self.reload().unwrap()
+        }
 
         if ui.button("RESET VIEW").clicked() {
             self.reset_view().unwrap();
@@ -369,6 +388,12 @@ impl<'a> SfmlEngineInternal<'a> {
     }
 
     fn resize_internal(&mut self, width: u32, height: u32) {
+        let mut ctx = self.ctx_mx.lock().unwrap();
+        ctx.res = self.win.size();
+
+        let mut new_real = ctx.window.real().clone();
+        new_real.mul_from(ctx.res.y as f32 / ctx.res.x as f32);
+        ctx.window.mut_imag().assign(new_real);
         self.win.set_view(
             &*View::from_rect(FloatRect::new(0.0, 0.0, width as f32, height as f32)).unwrap(),
         );
@@ -391,15 +416,7 @@ impl<'a> SfmlEngineInternal<'a> {
     fn reload_internal<T: FractalComplex>(&mut self, lodiv: u32) {
         let start = Instant::now();
 
-        let mut ctx = self.ctx_mx.lock().unwrap();
-
-        if ctx.res != self.win.size() {
-            ctx.res = self.win.size();
-
-            let mut new_real = ctx.window.real().clone();
-            new_real.mul_from(ctx.res.y as f32 / ctx.res.x as f32);
-            ctx.window.mut_imag().assign(new_real);
-        }
+        let ctx = self.ctx_mx.lock().unwrap().clone();
 
         let res_lodiv = (ctx.res.x / lodiv, ctx.res.y / lodiv);
 
@@ -421,7 +438,7 @@ impl<'a> SfmlEngineInternal<'a> {
                 );
                 let mut n = c;
                 let mut distance = T::float_val_0();
-                for _i in 1..=99 {
+                for _i in 1..ctx.seq_iter {
                     n.fsq_add(c);
                     distance = n.distance_origin();
                     if distance >= T::float_val_100() {
@@ -443,6 +460,6 @@ impl<'a> SfmlEngineInternal<'a> {
             .load_from_image(&new_image, IntRect::default())
             .unwrap();
 
-        ctx.reload_dur = start.elapsed();
+        self.ctx_mx.lock().unwrap().reload_dur = start.elapsed();
     }
 }

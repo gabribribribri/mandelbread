@@ -21,6 +21,7 @@ pub struct FractalContext {
     pub window: rug::Complex, // window.re : length window
     pub backend: FractalBackend,
     pub lodiv: u32,
+    pub seq_iter: u32,
     pub reload_dur: Duration,
     pub engine_enabled: bool,
 }
@@ -50,6 +51,7 @@ impl Default for FractalContext {
             window: rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, (2.66, 2.0)),
             backend: FractalBackend::F32,
             lodiv: lodiv::HIGHEST,
+            seq_iter: 100,
             reload_dur: Duration::ZERO,
             engine_enabled: true,
         }
@@ -69,9 +71,11 @@ pub trait FractalEngine {
 
     fn zoom_view(&mut self, zoom: f32) -> Result<(), FractalEngineError>;
 
-    fn change_lodiv(&mut self, lodiv: u32) -> Result<(), FractalEngineError>;
+    fn set_lodiv(&mut self, lodiv: u32) -> Result<(), FractalEngineError>;
 
-    fn change_backend(&mut self, backend: FractalBackend) -> Result<(), FractalEngineError>;
+    fn set_seq_iter(&mut self, seq_iter: u32) -> Result<(), FractalEngineError>;
+
+    fn set_backend(&mut self, backend: FractalBackend) -> Result<(), FractalEngineError>;
 
     fn gui_bottom_panel(&mut self, ui: &mut egui::Ui);
 
