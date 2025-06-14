@@ -228,7 +228,7 @@ impl FractalEngine for SfmlEngine {
 
         ui.horizontal(|ui| {
             ui.label("Sequence Iterations : ");
-            if ui.add(egui::DragValue::new(&mut ctx.seq_iter)).dragged() {
+            if ui.add(egui::DragValue::new(&mut ctx.seq_iter)).changed() {
                 self.set_seq_iter(ctx.seq_iter).unwrap();
             }
         });
@@ -241,7 +241,7 @@ impl FractalEngine for SfmlEngine {
                         .range(1..=25)
                         .speed(0.04),
                 )
-                .dragged()
+                .changed()
             {
                 self.set_lodiv(ctx.lodiv).unwrap();
             }
