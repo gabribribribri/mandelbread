@@ -9,6 +9,11 @@ egui = "0.31.1"
 rug = "1.27.0"
 sfml = "0.24.0"
 
+[dependencies.gmp-mpfr-sys]
+version = "1.6"
+default-features = false
+features = ["mpfr", "use-system-libs"]
+
 [profile.release]
 debug = "line-tables-only" # Or `true` for full debug info
 overflow-checks = false # Disable if not needed for profiling
