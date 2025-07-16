@@ -1,6 +1,6 @@
 use std::{
     sync::{
-        Arc, Mutex,
+        Arc, RwLock,
         mpsc::{self, Sender},
     },
     thread,
@@ -23,31 +23,31 @@ use crate::{
 
 pub struct SfmlEngine {
     notif_tx: Sender<FractalNotif>,
-    ctx_mx: Arc<Mutex<FractalContext>>,
+    ctx_rwl: Arc<RwLock<FractalContext>>,
 }
 
 impl SfmlEngine {
     pub fn new() -> SfmlEngine {
         let (ext_tx, in_rx) = mpsc::channel::<FractalNotif>();
 
-        let ctx_mx = Arc::<Mutex<FractalContext>>::default();
+        let ctx_rwl = Arc::<RwLock<FractalContext>>::default();
 
-        let ctx_mx_clone = Arc::clone(&ctx_mx);
+        let ctx_rwl_clone = Arc::clone(&ctx_rwl);
 
-        thread::spawn(|| -> ! { SfmlEngineInternal::run(ctx_mx_clone, in_rx) });
+        thread::spawn(|| -> ! { SfmlEngineInternal::run(ctx_rwl_clone, in_rx) });
 
         ext_tx.send(FractalNotif::Commence).unwrap();
 
         SfmlEngine {
             notif_tx: ext_tx,
-            ctx_mx,
+            ctx_rwl,
         }
     }
 }
 
 impl FractalEngine for SfmlEngine {
     fn commence(&self) -> Result<(), FractalEngineError> {
-        self.ctx_mx.lock().unwrap().engine_enabled = true;
+        self.ctx_rwl.write().unwrap().engine_enabled = true;
         match self.notif_tx.send(FractalNotif::Commence) {
             Ok(_) => Ok(()),
             Err(e) => {
@@ -58,7 +58,7 @@ impl FractalEngine for SfmlEngine {
     }
 
     fn shutdown(&mut self) -> Result<(), FractalEngineError> {
-        self.ctx_mx.lock().unwrap().engine_enabled = false;
+        self.ctx_rwl.write().unwrap().engine_enabled = false;
         match self.notif_tx.send(FractalNotif::Shutdown) {
             Ok(_) => Ok(()),
             Err(e) => {
@@ -69,7 +69,7 @@ impl FractalEngine for SfmlEngine {
     }
 
     fn reset_view(&mut self) -> Result<(), FractalEngineError> {
-        let mut ctx = self.ctx_mx.lock().unwrap();
+        let mut ctx = self.ctx_rwl.write().unwrap();
         ctx.center = rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, -0.5);
         ctx.window = rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, (2.66, 2.0));
         let mut new_real = ctx.window.real().clone();
@@ -91,7 +91,7 @@ impl FractalEngine for SfmlEngine {
     }
 
     fn move_window(&mut self, trsln: Complex<f32>) -> Result<(), FractalEngineError> {
-        let mut ctx = self.ctx_mx.lock().unwrap();
+        let mut ctx = self.ctx_rwl.write().unwrap();
 
         let mut real_offset = ctx.window.real().clone();
         real_offset.mul_from(0.5 * trsln.re);
@@ -106,21 +106,21 @@ impl FractalEngine for SfmlEngine {
 
     fn zoom_view(&mut self, zoom: f32) -> Result<(), FractalEngineError> {
         {
-            self.ctx_mx.lock().unwrap().window *= zoom;
+            self.ctx_rwl.write().unwrap().window *= zoom;
         }
         self.reload()
     }
 
     fn set_lodiv(&mut self, lodiv: u32) -> Result<(), FractalEngineError> {
         {
-            self.ctx_mx.lock().unwrap().lodiv = lodiv;
+            self.ctx_rwl.write().unwrap().lodiv = lodiv;
         }
         self.reload()
     }
 
     fn set_backend(&mut self, backend: FractalBackend) -> Result<(), FractalEngineError> {
         {
-            self.ctx_mx.lock().unwrap().backend = backend;
+            self.ctx_rwl.write().unwrap().backend = backend;
         }
         self.reload()
     }
@@ -129,7 +129,7 @@ impl FractalEngine for SfmlEngine {
         // TODO it would be cool if I could reload here...
         // nevermind, although it is squechy...
         {
-            self.ctx_mx.lock().unwrap().seq_iter = seq_iter;
+            self.ctx_rwl.write().unwrap().seq_iter = seq_iter;
         }
         self.reload()
     }
@@ -137,7 +137,7 @@ impl FractalEngine for SfmlEngine {
     fn gui_central_panel(&mut self, ui: &mut Ui) {
         let mut ctx;
         {
-            ctx = self.ctx_mx.lock().unwrap().clone();
+            ctx = self.ctx_rwl.read().unwrap().clone();
         } // drops the mic
 
         ui.heading("SFML Engine");
@@ -249,7 +249,7 @@ impl FractalEngine for SfmlEngine {
     }
 
     fn gui_bottom_panel(&mut self, ui: &mut Ui) {
-        let ctx = self.ctx_mx.lock().unwrap();
+        let ctx = self.ctx_rwl.read().unwrap();
 
         ui.horizontal(|ui| {
             ui.label(RichText::new("Reload Time :").strong());

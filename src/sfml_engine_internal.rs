@@ -1,6 +1,6 @@
 use std::{
     sync::{
-        Arc, Mutex,
+        Arc, RwLock,
         mpsc::{Receiver, TryRecvError},
     },
     time::Instant,
@@ -22,14 +22,14 @@ use crate::{
 };
 
 pub struct SfmlEngineInternal<'a> {
-    pub notif_rx: &'a Receiver<FractalNotif>,
-    pub ctx_mx: Arc<Mutex<FractalContext>>,
-    pub win: FBox<RenderWindow>,
-    pub texture: FBox<Texture>,
+    notif_rx: &'a Receiver<FractalNotif>,
+    ctx_mx: Arc<RwLock<FractalContext>>,
+    win: FBox<RenderWindow>,
+    texture: FBox<Texture>,
 }
 
 impl<'a> SfmlEngineInternal<'a> {
-    pub fn run(ctx_mx: Arc<Mutex<FractalContext>>, rx: Receiver<FractalNotif>) -> ! {
+    pub fn run(ctx_mx: Arc<RwLock<FractalContext>>, rx: Receiver<FractalNotif>) -> ! {
         loop {
             match rx.recv().unwrap() {
                 FractalNotif::Commence => (), // Time to start...
@@ -43,7 +43,7 @@ impl<'a> SfmlEngineInternal<'a> {
                 }
             };
 
-            let ctx = ctx_mx.lock().unwrap();
+            let ctx = ctx_mx.read().unwrap();
 
             let mut win = RenderWindow::new(
                 (ctx.res.x, ctx.res.y),
@@ -122,7 +122,7 @@ impl<'a> SfmlEngineInternal<'a> {
     }
 
     fn resize_internal(&mut self, width: u32, height: u32) {
-        let mut ctx = self.ctx_mx.lock().unwrap();
+        let mut ctx = self.ctx_mx.write().unwrap();
         ctx.res = self.win.size();
 
         let mut new_real = ctx.window.real().clone();
@@ -136,7 +136,7 @@ impl<'a> SfmlEngineInternal<'a> {
     fn choose_reload_internal(&mut self) {
         let backend;
         {
-            let ctx = self.ctx_mx.lock().unwrap();
+            let ctx = self.ctx_mx.read().unwrap();
             backend = ctx.backend;
         }
 
@@ -147,12 +147,12 @@ impl<'a> SfmlEngineInternal<'a> {
             FractalBackend::F64 => self.reload_internal_f64(),
         }
 
-        self.ctx_mx.lock().unwrap().reload_dur = start.elapsed();
+        self.ctx_mx.write().unwrap().reload_dur = start.elapsed();
     }
 
     // Drop f32 support next time you need to modify something here
     fn reload_internal_f32(&mut self) {
-        let ctx = self.ctx_mx.lock().unwrap().clone();
+        let ctx = self.ctx_mx.read().unwrap().clone();
         let center_c32 = Complex::new(ctx.center.real().to_f32(), ctx.center.imag().to_f32());
         let window_c32 = Complex::new(ctx.window.real().to_f32(), ctx.window.imag().to_f32());
         let res_lodiv_u32 = (ctx.res.x / ctx.lodiv, ctx.res.y / ctx.lodiv);
@@ -196,7 +196,7 @@ impl<'a> SfmlEngineInternal<'a> {
     }
 
     fn reload_internal_f64(&mut self) {
-        let ctx = self.ctx_mx.lock().unwrap().clone();
+        let ctx = self.ctx_mx.read().unwrap().clone();
         let center_c64 = Complex::new(ctx.center.real().to_f64(), ctx.center.imag().to_f64());
         let window_c64 = Complex::new(ctx.window.real().to_f64(), ctx.window.imag().to_f64());
         let res_lodiv_u32 = (ctx.res.x / ctx.lodiv, ctx.res.y / ctx.lodiv);
