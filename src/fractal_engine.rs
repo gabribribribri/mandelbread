@@ -24,6 +24,7 @@ pub struct FractalContext {
     pub seq_iter: u32,
     pub reload_dur: Duration,
     pub engine_enabled: bool,
+    pub worker_count: u32,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -54,6 +55,7 @@ impl Default for FractalContext {
             seq_iter: 100,
             reload_dur: Duration::ZERO,
             engine_enabled: true,
+            worker_count: 1,
         }
     }
 }

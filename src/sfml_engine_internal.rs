@@ -1,35 +1,46 @@
 use std::{
     sync::{
         Arc, RwLock,
-        mpsc::{Receiver, TryRecvError},
+        mpsc::{self, Receiver, Sender, TryRecvError},
     },
-    time::Instant,
+    thread,
 };
 
 use rug::{Assign, ops::MulFrom};
 use sfml::{
     cpp::FBox,
     graphics::{
-        Color, FloatRect, Image, IntRect, RenderTarget, RenderWindow, Sprite, Texture,
-        Transformable, View,
+        Color, FloatRect, IntRect, RenderTarget, RenderWindow, Sprite, Texture, Transformable, View,
     },
     window::{ContextSettings, Event, Style},
 };
 
 use crate::{
-    fractal_complex::Complex,
-    fractal_engine::{FractalBackend, FractalContext, FractalNotif},
+    fractal_engine::{FractalContext, FractalNotif},
+    sfml_engine_worker::SfmlEngineWorkerInternal,
 };
 
 pub struct SfmlEngineInternal<'a> {
     notif_rx: &'a Receiver<FractalNotif>,
-    ctx_mx: Arc<RwLock<FractalContext>>,
+    ctx_rwl: Arc<RwLock<FractalContext>>,
     win: FBox<RenderWindow>,
     texture: FBox<Texture>,
+    workers: Vec<SfmlEngineWorkerExternal>,
+}
+
+struct SfmlEngineWorkerExternal {
+    tx: Sender<WorkerNotif>,
+    rx: Receiver<Vec<u8>>,
+}
+
+pub enum WorkerNotif {
+    SetRenderRect(IntRect),
+    Reload,
+    Shutdown,
 }
 
 impl<'a> SfmlEngineInternal<'a> {
-    pub fn run(ctx_mx: Arc<RwLock<FractalContext>>, rx: Receiver<FractalNotif>) -> ! {
+    pub fn run(ctx_rwl: Arc<RwLock<FractalContext>>, rx: Receiver<FractalNotif>) -> ! {
         loop {
             match rx.recv().unwrap() {
                 FractalNotif::Commence => (), // Time to start...
@@ -43,7 +54,7 @@ impl<'a> SfmlEngineInternal<'a> {
                 }
             };
 
-            let ctx = ctx_mx.read().unwrap();
+            let ctx = ctx_rwl.read().unwrap();
 
             let mut win = RenderWindow::new(
                 (ctx.res.x, ctx.res.y),
@@ -55,18 +66,33 @@ impl<'a> SfmlEngineInternal<'a> {
 
             win.set_framerate_limit(60);
 
-            let image = Image::new_solid(ctx.res.x, ctx.res.y, Color::MAGENTA).unwrap();
-            let texture = Texture::from_image(&image, IntRect::default()).unwrap();
-            // let res = ctx.res;
+            let mut workers = vec![];
 
+            for _ in 0..ctx.worker_count {
+                let (worker_tx, internal_rx) = mpsc::channel();
+                let (internal_tx, worker_rx) = mpsc::channel();
+                let ctx_rwl_clone = ctx_rwl.clone();
+
+                thread::spawn(|| {
+                    SfmlEngineWorkerInternal::build_and_run(internal_rx, internal_tx, ctx_rwl_clone)
+                });
+
+                workers.push(SfmlEngineWorkerExternal {
+                    tx: worker_tx,
+                    rx: worker_rx,
+                });
+            }
+
+            let mut texture = Texture::new().unwrap();
+            texture.create(ctx.res.x, ctx.res.y).unwrap();
             drop(ctx);
 
             let internal_engine = SfmlEngineInternal {
                 notif_rx: &rx,
-                ctx_mx: Arc::clone(&ctx_mx),
-                // res,
+                ctx_rwl: Arc::clone(&ctx_rwl),
                 win,
                 texture,
+                workers,
             };
 
             internal_engine.run_until_end();
@@ -78,7 +104,6 @@ impl<'a> SfmlEngineInternal<'a> {
             self.handle_events_internal();
             self.handle_notifs_internal();
             self.render_internal();
-            // No need to wait since the framerate is capped at 60
         }
     }
 
@@ -122,7 +147,7 @@ impl<'a> SfmlEngineInternal<'a> {
     }
 
     fn resize_internal(&mut self, width: u32, height: u32) {
-        let mut ctx = self.ctx_mx.write().unwrap();
+        let mut ctx = self.ctx_rwl.write().unwrap();
         ctx.res = self.win.size();
 
         let mut new_real = ctx.window.real().clone();
@@ -131,111 +156,5 @@ impl<'a> SfmlEngineInternal<'a> {
         self.win.set_view(
             &*View::from_rect(FloatRect::new(0.0, 0.0, width as f32, height as f32)).unwrap(),
         );
-    }
-
-    fn choose_reload_internal(&mut self) {
-        let backend;
-        {
-            let ctx = self.ctx_mx.read().unwrap();
-            backend = ctx.backend;
-        }
-
-        let start = Instant::now();
-
-        match backend {
-            FractalBackend::F32 => self.reload_internal_f32(),
-            FractalBackend::F64 => self.reload_internal_f64(),
-        }
-
-        self.ctx_mx.write().unwrap().reload_dur = start.elapsed();
-    }
-
-    // Drop f32 support next time you need to modify something here
-    fn reload_internal_f32(&mut self) {
-        let ctx = self.ctx_mx.read().unwrap().clone();
-        let center_c32 = Complex::new(ctx.center.real().to_f32(), ctx.center.imag().to_f32());
-        let window_c32 = Complex::new(ctx.window.real().to_f32(), ctx.window.imag().to_f32());
-        let res_lodiv_u32 = (ctx.res.x / ctx.lodiv, ctx.res.y / ctx.lodiv);
-        let res_lodiv_c32 = Complex::new(res_lodiv_u32.0 as f32, res_lodiv_u32.1 as f32);
-        let seq_iter = ctx.seq_iter;
-        let mut new_image =
-            Image::new_solid(res_lodiv_u32.0, res_lodiv_u32.1, Color::MAGENTA).unwrap();
-        drop(ctx);
-
-        for x in 0..res_lodiv_u32.0 {
-            for y in 0..res_lodiv_u32.1 {
-                let c = Complex::map_pixel_value_f32(
-                    res_lodiv_c32,
-                    center_c32,
-                    window_c32,
-                    Complex::new(x as f32, y as f32),
-                );
-                let mut n = c;
-                let mut distance = 0.0;
-                for _i in 1..seq_iter {
-                    n.fsq_add_f32(c);
-                    distance = n.re.abs() + n.im.abs();
-                    if distance >= 100.0 {
-                        break;
-                    }
-                }
-                if distance <= 100.0 {
-                    new_image.set_pixel(x, y, Color::BLACK).unwrap()
-                } else {
-                    new_image
-                        .set_pixel(x, y, Complex::distance_gradient_f32(distance))
-                        .unwrap();
-                }
-            }
-        }
-
-        // Send image to the GPU
-        self.texture
-            .load_from_image(&new_image, IntRect::default())
-            .unwrap();
-    }
-
-    fn reload_internal_f64(&mut self) {
-        let ctx = self.ctx_mx.read().unwrap().clone();
-        let center_c64 = Complex::new(ctx.center.real().to_f64(), ctx.center.imag().to_f64());
-        let window_c64 = Complex::new(ctx.window.real().to_f64(), ctx.window.imag().to_f64());
-        let res_lodiv_u32 = (ctx.res.x / ctx.lodiv, ctx.res.y / ctx.lodiv);
-        let res_lodiv_c64 = Complex::new(res_lodiv_u32.0 as f64, res_lodiv_u32.1 as f64);
-        let seq_iter = ctx.seq_iter;
-        let mut new_image =
-            Image::new_solid(res_lodiv_u32.0, res_lodiv_u32.1, Color::MAGENTA).unwrap();
-        drop(ctx);
-
-        for x in 0..res_lodiv_u32.0 {
-            for y in 0..res_lodiv_u32.1 {
-                let c = Complex::map_pixel_value_f64(
-                    res_lodiv_c64,
-                    center_c64,
-                    window_c64,
-                    Complex::new(x as f64, y as f64),
-                );
-                let mut n = c;
-                let mut distance = 0.0;
-                for _i in 1..seq_iter {
-                    n.fsq_add_f64(c);
-                    distance = n.re.abs() + n.im.abs();
-                    if distance >= 100.0 {
-                        break;
-                    }
-                }
-                if distance <= 100.0 {
-                    new_image.set_pixel(x, y, Color::BLACK).unwrap()
-                } else {
-                    new_image
-                        .set_pixel(x, y, Complex::distance_gradient_f64(distance))
-                        .unwrap();
-                }
-            }
-        }
-
-        // Send image to the GPU
-        self.texture
-            .load_from_image(&new_image, IntRect::default())
-            .unwrap();
     }
 }

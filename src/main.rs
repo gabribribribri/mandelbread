@@ -1,8 +1,10 @@
 mod fractal_complex;
 mod fractal_engine;
 mod gui_wrapper;
+
 mod sfml_engine;
 mod sfml_engine_internal;
+mod sfml_engine_worker;
 
 use gui_wrapper::GuiWrapper;
 
