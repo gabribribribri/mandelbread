@@ -1,7 +1,5 @@
-use std::ops::{Add, Div, Mul, Sub};
-
-use rug;
 use sfml::graphics::Color;
+
 
 #[derive(Clone, Copy)]
 pub struct Complex<T> {
@@ -9,254 +7,92 @@ pub struct Complex<T> {
     pub im: T,
 }
 
-pub trait FractalComplex
-where
-    Self: Copy,
-{
-    type FloatType: PartialOrd
-        + Copy
-        + Add<Output = Self::FloatType>
-        + Sub<Output = Self::FloatType>
-        + Mul<Output = Self::FloatType>
-        + Div<Output = Self::FloatType>;
+impl<T> Complex<T> {
+    pub fn new(re: T, im: T) -> Self {
+        Self {
+            re,
+            im 
+        }
+    }
+}
 
-    fn re(self) -> Self::FloatType;
-
-    fn im(self) -> Self::FloatType;
-
-    fn new(re: Self::FloatType, im: Self::FloatType) -> Self;
-
-    fn float_val_0() -> Self::FloatType;
-
-    fn float_val_1() -> Self::FloatType;
-
-    fn float_val_100() -> Self::FloatType;
-
-    fn float_val_255() -> Self::FloatType;
-
-    fn half(n: Self::FloatType) -> Self::FloatType;
-
-    fn clamp(n: Self::FloatType, min: Self::FloatType, max: Self::FloatType) -> Self::FloatType;
-
-    fn round_to_u8(n: Self::FloatType) -> u8;
-
-    fn fsq_add(&mut self, c: Self);
-
-    fn distance_origin(self) -> Self::FloatType;
-
-    fn from_cmplx(val: &rug::Complex) -> Self;
-
-    fn from_u32_pair(val: (u32, u32)) -> Self;
-
-    fn map_pixel_value(res: Self, center: Self, window: Self, value: Self) -> Self
-// where
-    //     Self::FloatType: Debug,
-    {
-        // let d =
+impl Complex<f32> {
+    pub fn map_pixel_value_f32(res: Complex<f32>, center: Complex<f32>, window: Complex<f32>, value: Complex<f32>) -> Complex<f32> {
         Self::new(
-            center.re() - Self::half(window.re()) + (value.re() / res.re()) * window.re(),
-            center.im() - Self::half(window.im()) + (value.im() / res.im()) * window.im(),
+            center.re - (window.re/2.0) + (value.re / res.re) * window.re,
+            center.im - (window.im/2.0) + (value.im / res.im) * window.im,
         )
-        // print!("{:?}+{:?}i ", d.re(), d.im());
-        // d
     }
 
-    // TODO Make the color more generic
-    fn distance_gradient(distance: Self::FloatType) -> Color {
-        const START: u32 = 100;
-        const END: u32 = 1500;
+    pub fn fsq_add_f32(&mut self, c: Complex<f32>) {
+        (self.re, self.im) = (
+            self.re * self.re - self.im * self.im + c.re,
+            2.0 * self.re * self.im + c.im
+        );
+    }
 
-        // .re() is the start and .im() is the end... disgusting, I know
-        let sne = Self::from_u32_pair((START, END));
+    pub fn distance_gradient_f32(distance: f32) -> Color {
+        const START: f32 = 100.0;
+        const END: f32 = 1500.0;
+        const HALF: f32 = (END - START)/2.0;
 
-        let clamped_value = Self::clamp(distance, sne.re(), sne.im());
+        let clamped_value = distance.clamp(START, END);
+        let (red, green, blue);
 
-        let red: Self::FloatType;
-        let green: Self::FloatType;
-        let blue: Self::FloatType;
-
-        let half = Self::half(sne.im() - sne.re());
-
-        if clamped_value <= half {
-            let t = (clamped_value - sne.re()) / (half - sne.re());
-
-            red = (Self::float_val_1() - t) * Self::float_val_255();
-            green = t * Self::float_val_255();
-            blue = Self::float_val_0();
+        if clamped_value <= HALF {
+            let t = (clamped_value - START) / (HALF - START);
+            red = (1.0 - t) * 255.0;
+            green = t * 255.0;
+            blue = 0.0;
         } else {
-            let t = (clamped_value - half) / (half - sne.re());
-
-            red = Self::float_val_0();
-            green = (Self::float_val_1() - t) * Self::float_val_255();
-            blue = t * Self::float_val_255();
+            let t = (clamped_value - HALF) / (HALF - START);
+            red = 0.0;
+            green = (1.0 - t) * 255.0;
+            blue = t * 255.0;
         }
 
-        Color::rgb(
-            Self::round_to_u8(red),
-            Self::round_to_u8(green),
-            Self::round_to_u8(blue),
+        Color::rgb(red as u8, green as u8, blue as u8)
+        
+    }
+}
+
+impl Complex<f64> {
+    pub fn map_pixel_value_f64(res: Complex<f64>, center: Complex<f64>, window: Complex<f64>, value: Complex<f64>) -> Complex<f64> {
+        Self::new(
+            center.re - (window.re/2.0) + (value.re / res.re) * window.re,
+            center.im - (window.im/2.0) + (value.im / res.im) * window.im,
         )
     }
-}
 
-impl FractalComplex for Complex<f32> {
-    type FloatType = f32;
-
-    #[inline(always)]
-    fn re(self) -> Self::FloatType {
-        self.re
-    }
-
-    #[inline(always)]
-    fn im(self) -> Self::FloatType {
-        self.im
-    }
-
-    #[inline]
-    fn new(re: Self::FloatType, im: Self::FloatType) -> Self {
-        Self { re, im }
-    }
-
-    #[inline(always)]
-    fn float_val_0() -> Self::FloatType {
-        0.0
-    }
-
-    #[inline(always)]
-    fn float_val_1() -> Self::FloatType {
-        1.0
-    }
-
-    #[inline(always)]
-    fn float_val_100() -> Self::FloatType {
-        100.0
-    }
-
-    #[inline(always)]
-    fn float_val_255() -> Self::FloatType {
-        255.0
-    }
-
-    #[inline]
-    fn fsq_add(&mut self, c: Self) {
+    pub fn fsq_add_f64(&mut self, c: Complex<f64>) {
         (self.re, self.im) = (
             self.re * self.re - self.im * self.im + c.re,
-            2.0 * self.re * self.im + c.im,
+            2.0 * self.re * self.im + c.im
         );
     }
 
-    #[inline]
-    fn half(n: Self::FloatType) -> Self::FloatType {
-        n / 2.0
-    }
+    pub fn distance_gradient_f64(distance: f64) -> Color {
+        const START: f64 = 100.0;
+        const END: f64 = 1500.0;
+        const HALF: f64 = (END - START)/2.0;
 
-    fn clamp(n: Self::FloatType, min: Self::FloatType, max: Self::FloatType) -> Self::FloatType {
-        n.clamp(min, max)
-    }
+        let clamped_value = distance.clamp(START, END);
+        let (red, green, blue);
 
-    fn round_to_u8(n: Self::FloatType) -> u8 {
-        n.round() as u8
-    }
-
-    #[inline]
-    fn distance_origin(self) -> Self::FloatType {
-        self.re.abs() + self.im.abs()
-    }
-
-    #[inline]
-    fn from_cmplx(val: &rug::Complex) -> Self {
-        Complex {
-            re: val.real().to_f32(),
-            im: val.imag().to_f32(),
+        if clamped_value <= HALF {
+            let t = (clamped_value - START) / (HALF - START);
+            red = (1.0 - t) * 255.0;
+            green = t * 255.0;
+            blue = 0.0;
+        } else {
+            let t = (clamped_value - HALF) / (HALF - START);
+            red = 0.0;
+            green = (1.0 - t) * 255.0;
+            blue = t * 255.0;
         }
-    }
 
-    #[inline]
-    fn from_u32_pair(val: (u32, u32)) -> Self {
-        Complex {
-            re: val.0 as f32,
-            im: val.1 as f32,
-        }
+        Color::rgb(red as u8, green as u8, blue as u8)
+        
     }
 }
-
-impl FractalComplex for Complex<f64> {
-    type FloatType = f64;
-
-    #[inline(always)]
-    fn re(self) -> Self::FloatType {
-        self.re
-    }
-
-    #[inline(always)]
-    fn im(self) -> Self::FloatType {
-        self.im
-    }
-
-    #[inline]
-    fn new(re: Self::FloatType, im: Self::FloatType) -> Self {
-        Self { re, im }
-    }
-
-    #[inline(always)]
-    fn float_val_0() -> Self::FloatType {
-        0.0
-    }
-
-    #[inline(always)]
-    fn float_val_1() -> Self::FloatType {
-        1.0
-    }
-
-    #[inline(always)]
-    fn float_val_100() -> Self::FloatType {
-        100.0
-    }
-
-    #[inline(always)]
-    fn float_val_255() -> Self::FloatType {
-        255.0
-    }
-
-    #[inline]
-    fn fsq_add(&mut self, c: Self) {
-        (self.re, self.im) = (
-            self.re * self.re - self.im * self.im + c.re,
-            2.0 * self.re * self.im + c.im,
-        );
-    }
-
-    #[inline]
-    fn half(n: Self::FloatType) -> Self::FloatType {
-        n / 2.0
-    }
-
-    fn clamp(n: Self::FloatType, min: Self::FloatType, max: Self::FloatType) -> Self::FloatType {
-        n.clamp(min, max)
-    }
-
-    fn round_to_u8(n: Self::FloatType) -> u8 {
-        n.round() as u8
-    }
-
-    #[inline]
-    fn distance_origin(self) -> Self::FloatType {
-        self.re.abs() + self.im.abs()
-    }
-
-    #[inline]
-    fn from_cmplx(val: &rug::Complex) -> Self {
-        Complex {
-            re: val.real().to_f64(),
-            im: val.imag().to_f64(),
-        }
-    }
-
-    #[inline]
-    fn from_u32_pair(val: (u32, u32)) -> Self {
-        Complex {
-            re: val.0 as f64,
-            im: val.1 as f64,
-        }
-    }
-}
+ 

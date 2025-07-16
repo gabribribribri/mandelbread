@@ -23,10 +23,9 @@ use sfml::{
 };
 
 use crate::{
-    fractal_complex::{Complex, FractalComplex},
+    fractal_complex::{self, Complex},
     fractal_engine::{
-        FRCTL_CTX_CMPLX_PREC, FractalBackend, FractalContext, FractalEngine, FractalEngineError,
-        FractalNotif, lodiv,
+        lodiv, FractalBackend, FractalContext, FractalEngine, FractalEngineError, FractalNotif, FRCTL_CTX_CMPLX_PREC
     },
 };
 
@@ -400,56 +399,97 @@ impl<'a> SfmlEngineInternal<'a> {
     }
 
     fn choose_reload_internal(&mut self) {
-        let (lodiv, backend);
+        let backend;
         {
             let ctx = self.ctx_mx.lock().unwrap();
-            lodiv = ctx.lodiv;
             backend = ctx.backend;
         }
 
-        match backend {
-            FractalBackend::F32 => self.reload_internal::<Complex<f32>>(lodiv),
-            FractalBackend::F64 => self.reload_internal::<Complex<f64>>(lodiv),
-        }
-    }
-
-    fn reload_internal<T: FractalComplex>(&mut self, lodiv: u32) {
         let start = Instant::now();
 
+        match backend {
+            FractalBackend::F32 => self.reload_internal_f32(),
+            FractalBackend::F64 => self.reload_internal_f64(),
+        }
+
+        self.ctx_mx.lock().unwrap().reload_dur = start.elapsed();
+    }
+
+    fn reload_internal_f32(&mut self) {
         let ctx = self.ctx_mx.lock().unwrap().clone();
-
-        let res_lodiv = (ctx.res.x / lodiv, ctx.res.y / lodiv);
-
-        // FIX MAYBE SOMETHING TO INVESTIGATE
-        let center_as_t = T::from_cmplx(&ctx.center);
-        let window_as_t = T::from_cmplx(&ctx.window);
-
-        let res_as_t = T::from_u32_pair(res_lodiv);
-
+        let center_c32 = Complex::new(ctx.center.real().to_f32(), ctx.center.imag().to_f32());
+        let window_c32 = Complex::new(ctx.window.real().to_f32(), ctx.window.imag().to_f32());
+        let res_c32 = Complex::new(ctx.res.x as f32, ctx.res.y as f32);
+        let res_lodiv = (ctx.res.x / ctx.lodiv, ctx.res.y / ctx.lodiv);
+        let seq_iter = ctx.seq_iter;
         let mut new_image = Image::new_solid(res_lodiv.0, res_lodiv.1, Color::MAGENTA).unwrap();
+        drop(ctx);
 
         for x in 0..res_lodiv.0 {
             for y in 0..res_lodiv.1 {
-                let c = T::map_pixel_value(
-                    res_as_t,
-                    center_as_t,
-                    window_as_t,
-                    T::from_u32_pair((x, y)),
+                let c = Complex::map_pixel_value_f32(
+                    res_c32,
+                    center_c32,
+                    window_c32,
+                    Complex::new(x as f32, y as f32),
                 );
                 let mut n = c;
-                let mut distance = T::float_val_0();
-                for _i in 1..ctx.seq_iter {
-                    n.fsq_add(c);
-                    distance = n.distance_origin();
-                    if distance >= T::float_val_100() {
+                let mut distance = 0.0;
+                for _i in 1..seq_iter {
+                    n.fsq_add_f32(c);
+                    distance = n.re.abs() + n.im.abs();
+                    if distance >= 100.0 {
                         break;
                     }
                 }
-                if distance <= T::float_val_100() {
+                if distance <= 100.0 {
                     new_image.set_pixel(x, y, Color::BLACK).unwrap()
                 } else {
                     new_image
-                        .set_pixel(x, y, T::distance_gradient(distance))
+                        .set_pixel(x, y, Complex::distance_gradient_f32(distance))
+                        .unwrap();
+                }
+            }
+        }
+
+        // Send image to the GPU
+        self.texture
+            .load_from_image(&new_image, IntRect::default())
+            .unwrap();
+    }
+
+    fn reload_internal_f64(&mut self) {
+        let ctx = self.ctx_mx.lock().unwrap().clone();
+        let center_c64 = Complex::new(ctx.center.real().to_f64(), ctx.center.imag().to_f64());
+        let window_c64 = Complex::new(ctx.window.real().to_f64(), ctx.window.imag().to_f64());
+        let res_c64 = Complex::new(ctx.res.x as f64, ctx.res.y as f64);
+        let res_lodiv = (ctx.res.x / ctx.lodiv, ctx.res.y / ctx.lodiv);
+        let seq_iter = ctx.seq_iter;
+        let mut new_image = Image::new_solid(res_lodiv.0, res_lodiv.1, Color::MAGENTA).unwrap();
+        drop(ctx);
+
+        for x in 0..res_lodiv.0 {
+            for y in 0..res_lodiv.1 {
+                let c = Complex::map_pixel_value_f64(
+                    res_c64,
+                    center_c64,
+                    window_c64,
+                    Complex::new(x as f64, y as f64),
+                );
+                let mut n = c;
+                let mut distance = 0.0;
+                for _i in 1..seq_iter {
+                    n.fsq_add_f64(c);
+                    distance = n.re.abs() + n.im.abs();
+                    if distance >= 100.0 {
+                        break;
+                    }
+                }
+                if distance <= 100.0 {
+                    new_image.set_pixel(x, y, Color::BLACK).unwrap()
+                } else {
+                    new_image
+                        .set_pixel(x, y, Complex::distance_gradient_f64(distance))
                         .unwrap();
                 }
             }
@@ -460,6 +500,5 @@ impl<'a> SfmlEngineInternal<'a> {
             .load_from_image(&new_image, IntRect::default())
             .unwrap();
 
-        self.ctx_mx.lock().unwrap().reload_dur = start.elapsed();
     }
 }
