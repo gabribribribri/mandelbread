@@ -2,6 +2,7 @@ mod fractal_complex;
 mod fractal_engine;
 mod gui_wrapper;
 mod sfml_engine;
+mod sfml_engine_internal;
 
 use gui_wrapper::GuiWrapper;
 
