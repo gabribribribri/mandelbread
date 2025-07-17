@@ -26,6 +26,7 @@ pub struct FractalContext {
     pub engine_enabled: bool,
     pub worker_count: usize,
     pub converge_distance: f64,
+    pub has_resized: bool,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -57,6 +58,7 @@ impl Default for FractalContext {
             engine_enabled: true,
             worker_count: 1,
             converge_distance: 100.0,
+            has_resized: true,
         }
     }
 }

@@ -4,7 +4,7 @@ use std::{
         mpsc::{self, Receiver, Sender, TryRecvError},
     },
     thread,
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use rug::{Assign, ops::MulFrom};
@@ -24,9 +24,9 @@ use crate::{
 pub struct SfmlEngineInternal<'a> {
     notif_rx: &'a Receiver<FractalNotif>,
     ctx_rwl: Arc<RwLock<FractalContext>>,
+    workers: Vec<SfmlEngineWorkerExternal>,
     win: FBox<RenderWindow>,
     texture: FBox<Texture>,
-    workers: Vec<SfmlEngineWorkerExternal>,
 }
 
 struct SfmlEngineWorkerExternal {
@@ -38,6 +38,12 @@ pub enum WorkerNotif {
     SetRenderRect(Rect<u32>),
     Reload,
     Shutdown,
+}
+
+pub struct WorkerResult {
+    pixels: Vec<u8>,
+    rrect: Rect<u32>,
+    reload_dur: Duration,
 }
 
 impl<'a> SfmlEngineInternal<'a> {
@@ -161,11 +167,10 @@ impl<'a> SfmlEngineInternal<'a> {
         let mut ctx = self.ctx_rwl.write().unwrap();
 
         ctx.res = self.win.size();
-
-        assert!(width == self.win.size().x && height == self.win.size().y);
+        ctx.has_resized = true;
 
         let mut new_real = ctx.window.real().clone();
-        new_real.mul_from(ctx.res.y as f32 / ctx.res.x as f32);
+        new_real.mul_from(height as f64 / width as f64);
         ctx.window.mut_imag().assign(new_real);
 
         self.win.set_view(
@@ -212,16 +217,22 @@ impl<'a> SfmlEngineInternal<'a> {
     }
 
     fn send_render_rect_workers(&mut self) {
-        let render_rect_width = self.texture.size().x / self.workers.len() as u32;
+        let rrect_top = self.texture.size().y / self.workers.len() as u32;
         for i in 0..self.workers.len() {
+            let rrect_height = if i == self.workers.len() - 1 {
+                self.texture.size().y - rrect_top * (self.workers.len() as u32 - 1)
+            } else {
+                rrect_top
+            };
+            let new_rrect = Rect {
+                left: 0,
+                top: i as u32 * rrect_top,
+                width: self.texture.size().x,
+                height: rrect_height,
+            };
             self.workers[i]
                 .tx
-                .send(WorkerNotif::SetRenderRect(Rect {
-                    left: i as u32 * render_rect_width,
-                    top: 0,
-                    width: render_rect_width,
-                    height: self.texture.size().y,
-                }))
+                .send(WorkerNotif::SetRenderRect(new_rrect))
                 .unwrap();
         }
     }
@@ -230,18 +241,27 @@ impl<'a> SfmlEngineInternal<'a> {
         // Start the chronometer
         let start = Instant::now();
 
+        let (ctx_worker_count, ctx_lodiv, ctx_has_resized);
+        {
+            let ctx = self.ctx_rwl.read().unwrap();
+            ctx_worker_count = ctx.worker_count;
+            ctx_lodiv = ctx.lodiv;
+            ctx_has_resized = ctx.has_resized;
+        }
+
         // Create or Remove workers if necessary
-        let ctx_worker_count = self.ctx_rwl.read().unwrap().worker_count;
         if self.workers.len() != ctx_worker_count {
             self.manage_workers(ctx_worker_count);
             self.send_render_rect_workers();
         }
 
         // Resize self.texture and worker's RenderRect if necessary
-        if self.texture.size() != self.win.size() {
+        if ctx_has_resized {
+            self.ctx_rwl.write().unwrap().has_resized = false;
+
             // Changing Texture Size
             self.texture
-                .create(self.win.size().x, self.win.size().y)
+                .create(self.win.size().x / ctx_lodiv, self.win.size().y / ctx_lodiv)
                 .unwrap();
 
             // Changing Workers RenderRect

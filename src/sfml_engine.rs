@@ -108,46 +108,38 @@ impl FractalEngine for SfmlEngine {
     }
 
     fn zoom_view(&mut self, zoom: f32) -> Result<(), FractalEngineError> {
-        {
-            self.ctx_rwl.write().unwrap().window *= zoom;
-        }
+        self.ctx_rwl.write().unwrap().window *= zoom;
         self.reload()
     }
 
     fn set_lodiv(&mut self, lodiv: u32) -> Result<(), FractalEngineError> {
         {
-            self.ctx_rwl.write().unwrap().lodiv = lodiv;
+            let mut ctx = self.ctx_rwl.write().unwrap();
+            ctx.lodiv = lodiv;
+            ctx.has_resized = true;
         }
         self.reload()
     }
 
     fn set_backend(&mut self, backend: FractalBackend) -> Result<(), FractalEngineError> {
-        {
-            self.ctx_rwl.write().unwrap().backend = backend;
-        }
+        self.ctx_rwl.write().unwrap().backend = backend;
         self.reload()
     }
 
     fn set_seq_iter(&mut self, seq_iter: u32) -> Result<(), FractalEngineError> {
         // TODO it would be cool if I could reload here...
         // nevermind, although it is squechy...
-        {
-            self.ctx_rwl.write().unwrap().seq_iter = seq_iter;
-        }
+        self.ctx_rwl.write().unwrap().seq_iter = seq_iter;
         self.reload()
     }
 
     fn set_workers(&mut self, workers: usize) -> Result<(), FractalEngineError> {
-        {
-            self.ctx_rwl.write().unwrap().worker_count = workers;
-        }
+        self.ctx_rwl.write().unwrap().worker_count = workers;
         Ok(())
     }
 
     fn set_converge_distance(&mut self, converge_distance: f64) -> Result<(), FractalEngineError> {
-        {
-            self.ctx_rwl.write().unwrap().converge_distance = converge_distance;
-        }
+        self.ctx_rwl.write().unwrap().converge_distance = converge_distance;
         self.reload()
     }
 
