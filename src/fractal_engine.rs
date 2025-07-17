@@ -24,7 +24,7 @@ pub struct FractalContext {
     pub seq_iter: u32,
     pub reload_dur: Duration,
     pub engine_enabled: bool,
-    pub worker_count: u32,
+    pub worker_count: usize,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -75,6 +75,8 @@ pub trait FractalEngine {
     fn set_lodiv(&mut self, lodiv: u32) -> Result<(), FractalEngineError>;
 
     fn set_seq_iter(&mut self, seq_iter: u32) -> Result<(), FractalEngineError>;
+
+    fn set_workers(&mut self, workers: usize) -> Result<(), FractalEngineError>;
 
     fn set_backend(&mut self, backend: FractalBackend) -> Result<(), FractalEngineError>;
 

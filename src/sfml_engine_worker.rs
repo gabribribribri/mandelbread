@@ -73,7 +73,10 @@ impl SfmlEngineWorkerInternal {
                     res_lodiv_c64,
                     center_c64,
                     window_c64,
-                    Complex::new(x as f64, y as f64),
+                    Complex::new(
+                        (self.render_rect.left + x) as f64,
+                        (self.render_rect.top + y) as f64,
+                    ),
                 );
                 let mut n = c;
                 let mut distance = 0.0;

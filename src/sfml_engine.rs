@@ -137,6 +137,13 @@ impl FractalEngine for SfmlEngine {
         self.reload()
     }
 
+    fn set_workers(&mut self, workers: usize) -> Result<(), FractalEngineError> {
+        {
+            self.ctx_rwl.write().unwrap().worker_count = workers;
+        }
+        Ok(())
+    }
+
     fn gui_central_panel(&mut self, ui: &mut Ui) {
         let mut ctx;
         {
@@ -168,7 +175,19 @@ impl FractalEngine for SfmlEngine {
             }
         });
 
-        ui.horizontal(|ui| {});
+        ui.horizontal(|ui| {
+            ui.label("Workers : ");
+            if ui
+                .add(
+                    egui::DragValue::new(&mut ctx.worker_count)
+                        .range(1..=256)
+                        .speed(0.1),
+                )
+                .changed()
+            {
+                self.set_workers(ctx.worker_count).unwrap();
+            }
+        });
 
         ui.horizontal(|ui| {
             ui.label("Quality : ");

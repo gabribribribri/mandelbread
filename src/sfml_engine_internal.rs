@@ -173,9 +173,69 @@ impl<'a> SfmlEngineInternal<'a> {
         );
     }
 
+    fn manage_workers(&mut self, new_worker_count: usize) {
+        if new_worker_count == self.workers.len() {
+            panic!("Bruh qu'est-ce que tu me call, y'a rien changé ô_o");
+        } else if new_worker_count < self.workers.len() {
+            for _ in 0..(self.workers.len() - new_worker_count) {
+                self.workers
+                    .last()
+                    .unwrap()
+                    .tx
+                    .send(WorkerNotif::Shutdown)
+                    .unwrap();
+                self.workers.pop().unwrap();
+            }
+        } else if new_worker_count > self.workers.len() {
+            for id in 0..(new_worker_count - self.workers.len()) {
+                let (worker_tx, internal_rx) = mpsc::channel();
+                let (internal_tx, worker_rx) = mpsc::channel();
+                let ctx_rwl_clone = self.ctx_rwl.clone();
+
+                thread::Builder::new()
+                    .name(format!("SFML Worker {}", self.workers.len() + id))
+                    .spawn(|| {
+                        SfmlEngineWorkerInternal::build_and_run(
+                            internal_rx,
+                            internal_tx,
+                            ctx_rwl_clone,
+                        )
+                    })
+                    .unwrap();
+
+                self.workers.push(SfmlEngineWorkerExternal {
+                    tx: worker_tx,
+                    rx: worker_rx,
+                });
+            }
+        }
+    }
+
+    fn send_render_rect_workers(&mut self) {
+        let render_rect_width = self.texture.size().x / self.workers.len() as u32;
+        for i in 0..self.workers.len() {
+            self.workers[i]
+                .tx
+                .send(WorkerNotif::SetRenderRect(Rect {
+                    left: i as u32 * render_rect_width,
+                    top: 0,
+                    width: render_rect_width,
+                    height: self.texture.size().y,
+                }))
+                .unwrap();
+        }
+    }
+
     fn reload_internal(&mut self) {
         // Start the chronometer
         let start = Instant::now();
+
+        // Create or Remove workers if necessary
+        let ctx_worker_count = self.ctx_rwl.read().unwrap().worker_count;
+        if self.workers.len() != ctx_worker_count {
+            self.manage_workers(ctx_worker_count);
+            self.send_render_rect_workers();
+        }
 
         // Resize self.texture and worker's RenderRect if necessary
         if self.texture.size() != self.win.size() {
@@ -185,18 +245,7 @@ impl<'a> SfmlEngineInternal<'a> {
                 .unwrap();
 
             // Changing Workers RenderRect
-            let render_rect_width = self.texture.size().x / self.workers.len() as u32;
-            for i in 0..self.workers.len() {
-                self.workers[i]
-                    .tx
-                    .send(WorkerNotif::SetRenderRect(Rect {
-                        left: i as u32 * render_rect_width,
-                        top: 0,
-                        width: render_rect_width,
-                        height: self.texture.size().y,
-                    }))
-                    .unwrap();
-            }
+            self.send_render_rect_workers();
         }
 
         // Send the start message to the workers !
