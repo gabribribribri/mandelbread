@@ -50,7 +50,7 @@ impl Default for FractalContext {
             res: (800, 600).into(),
             center: rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, -0.5),
             window: rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, (2.66, 2.0)),
-            backend: FractalBackend::F32,
+            backend: FractalBackend::F64,
             lodiv: lodiv::HIGHEST,
             seq_iter: 100,
             reload_dur: Duration::ZERO,

@@ -68,14 +68,21 @@ impl<'a> SfmlEngineInternal<'a> {
 
             let mut workers = vec![];
 
-            for _ in 0..ctx.worker_count {
+            for id in 0..ctx.worker_count {
                 let (worker_tx, internal_rx) = mpsc::channel();
                 let (internal_tx, worker_rx) = mpsc::channel();
                 let ctx_rwl_clone = ctx_rwl.clone();
 
-                thread::spawn(|| {
-                    SfmlEngineWorkerInternal::build_and_run(internal_rx, internal_tx, ctx_rwl_clone)
-                });
+                thread::Builder::new()
+                    .name(format!("SFML Worker {}", id))
+                    .spawn(|| {
+                        SfmlEngineWorkerInternal::build_and_run(
+                            internal_rx,
+                            internal_tx,
+                            ctx_rwl_clone,
+                        )
+                    })
+                    .unwrap();
 
                 workers.push(SfmlEngineWorkerExternal {
                     tx: worker_tx,
@@ -122,7 +129,7 @@ impl<'a> SfmlEngineInternal<'a> {
             Ok(notif) => match notif {
                 FractalNotif::Commence => panic!("bah bro je roule déjà..."),
                 FractalNotif::Shutdown => self.shutdown_internal(),
-                FractalNotif::Reload => self.choose_reload_internal(),
+                FractalNotif::Reload => self.reload_internal(),
             },
             Err(TryRecvError::Empty) => (),
             Err(TryRecvError::Disconnected) => panic!("The connexion shouldn't be disconnected"),
@@ -144,17 +151,55 @@ impl<'a> SfmlEngineInternal<'a> {
 
     fn shutdown_internal(&mut self) {
         self.win.close();
+        for worker in &self.workers {
+            worker.tx.send(WorkerNotif::Shutdown).unwrap();
+        }
     }
 
     fn resize_internal(&mut self, width: u32, height: u32) {
         let mut ctx = self.ctx_rwl.write().unwrap();
+
         ctx.res = self.win.size();
+
+        assert!(width == self.win.size().x && height == self.win.size().y);
 
         let mut new_real = ctx.window.real().clone();
         new_real.mul_from(ctx.res.y as f32 / ctx.res.x as f32);
         ctx.window.mut_imag().assign(new_real);
+
         self.win.set_view(
             &*View::from_rect(FloatRect::new(0.0, 0.0, width as f32, height as f32)).unwrap(),
         );
+
+        let render_rect_width = width as i32 / self.workers.len() as i32;
+        for i in 0..self.workers.len() {
+            self.workers[i]
+                .tx
+                .send(WorkerNotif::SetRenderRect(IntRect {
+                    left: i as i32 * render_rect_width,
+                    top: 0,
+                    width: render_rect_width,
+                    height: height as i32,
+                }))
+                .unwrap();
+        }
+    }
+
+    fn reload_internal(&mut self) {
+        for worker in &self.workers {
+            worker.tx.send(WorkerNotif::Reload).unwrap();
+        }
+
+        let render_rect_width = self.win.size().x / self.workers.len() as u32;
+        for (i, worker) in self.workers.iter().enumerate() {
+            let data = worker.rx.recv().unwrap();
+            self.texture.update_from_pixels(
+                &*data,
+                render_rect_width,
+                self.win.size().y,
+                i as u32 * render_rect_width,
+                0,
+            );
+        }
     }
 }

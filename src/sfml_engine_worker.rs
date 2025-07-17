@@ -6,7 +6,7 @@ use std::{
     time::Instant,
 };
 
-use sfml::graphics::{Color, Image, IntRect};
+use sfml::graphics::IntRect;
 
 use crate::{
     fractal_complex::Complex,
@@ -38,11 +38,10 @@ impl SfmlEngineWorkerInternal {
             match worker.notif_rx.recv().unwrap() {
                 WorkerNotif::Reload => {
                     let data = worker.choose_reload_internal();
-                    worker.data_tx.send(data);
+                    worker.data_tx.send(data).unwrap();
                 }
-
                 WorkerNotif::Shutdown => break,
-                _ => panic!("Unimplemented AAAAAAAAH"),
+                WorkerNotif::SetRenderRect(render_rect) => worker.render_rect = render_rect,
             }
         }
     }
@@ -73,8 +72,7 @@ impl SfmlEngineWorkerInternal {
         let res_lodiv_u32 = (ctx.res.x / ctx.lodiv, ctx.res.y / ctx.lodiv);
         let res_lodiv_c64 = Complex::new(res_lodiv_u32.0 as f64, res_lodiv_u32.1 as f64);
         let seq_iter = ctx.seq_iter;
-        let mut new_image =
-            Image::new_solid(res_lodiv_u32.0, res_lodiv_u32.1, Color::MAGENTA).unwrap();
+        let mut pixels = vec![0; res_lodiv_u32.0 as usize * res_lodiv_u32.1 as usize * 4];
         drop(ctx);
 
         for x in 0..res_lodiv_u32.0 {
@@ -95,16 +93,17 @@ impl SfmlEngineWorkerInternal {
                     }
                 }
                 if distance <= 100.0 {
-                    new_image.set_pixel(x, y, Color::BLACK).unwrap()
+                    // new_image.set_pixel(x, y, Color::BLACK).unwrap()
+                    let coo = 4 * (res_lodiv_u32.1 * y + x) as usize;
+                    pixels[coo..coo + 4].copy_from_slice(&[0; 4]);
                 } else {
-                    new_image
-                        .set_pixel(x, y, Complex::distance_gradient_f64(distance))
-                        .unwrap();
+                    let coo = 4 * (res_lodiv_u32.1 * y + x) as usize;
+                    let color = Complex::distance_gradient_f64(distance);
+                    pixels[coo..coo + 4].copy_from_slice(&color);
                 }
             }
         }
 
-        // Send image to the GPU
-        todo!()
+        pixels
     }
 }

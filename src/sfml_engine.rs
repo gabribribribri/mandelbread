@@ -34,7 +34,10 @@ impl SfmlEngine {
 
         let ctx_rwl_clone = Arc::clone(&ctx_rwl);
 
-        thread::spawn(|| -> ! { SfmlEngineInternal::run(ctx_rwl_clone, in_rx) });
+        thread::Builder::new()
+            .name("SFML Engine".to_string())
+            .spawn(|| -> ! { SfmlEngineInternal::run(ctx_rwl_clone, in_rx) })
+            .unwrap();
 
         ext_tx.send(FractalNotif::Commence).unwrap();
 
