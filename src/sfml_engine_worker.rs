@@ -65,11 +65,11 @@ impl SfmlEngineWorkerInternal {
         let seq_iter = ctx.seq_iter;
         let converge_distance = ctx.converge_distance;
         let mut pixels =
-            vec![0; self.render_rect.width as usize * self.render_rect.height as usize * 4];
+            Vec::with_capacity((self.render_rect.width * self.render_rect.height * 4) as usize);
         drop(ctx);
 
-        for x in 0..self.render_rect.width {
-            for y in 0..self.render_rect.height {
+        for y in 0..self.render_rect.height {
+            for x in 0..self.render_rect.width {
                 let c = Complex::map_pixel_value_f64(
                     res_lodiv_c64,
                     center_c64,
@@ -89,13 +89,10 @@ impl SfmlEngineWorkerInternal {
                     }
                 }
                 if distance <= converge_distance {
-                    // new_image.set_pixel(x, y, Color::BLACK).unwrap()
-                    let coo = 4 * (self.render_rect.width * y + x) as usize;
-                    pixels[coo..coo + 4].copy_from_slice(&[0, 0, 0, 255]);
+                    pixels.extend_from_slice(&[0, 0, 0, 255]);
                 } else {
-                    let coo = 4 * (self.render_rect.width * y + x) as usize;
                     let color = Complex::distance_gradient_f64(distance);
-                    pixels[coo..coo + 4].copy_from_slice(&color);
+                    pixels.extend_from_slice(&color);
                 }
             }
         }
