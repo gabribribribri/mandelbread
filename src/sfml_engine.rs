@@ -177,6 +177,9 @@ impl FractalEngine for SfmlEngine {
 
         ui.horizontal(|ui| {
             ui.label("Workers : ");
+            if ui.button(" - ").clicked() && ctx.worker_count >= 1 {
+                self.set_workers(ctx.worker_count - 1).unwrap();
+            }
             if ui
                 .add(
                     egui::DragValue::new(&mut ctx.worker_count)
@@ -186,6 +189,9 @@ impl FractalEngine for SfmlEngine {
                 .changed()
             {
                 self.set_workers(ctx.worker_count).unwrap();
+            }
+            if ui.button(" + ").clicked() && ctx.worker_count <= 256 {
+                self.set_workers(ctx.worker_count + 1).unwrap();
             }
         });
 
