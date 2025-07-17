@@ -14,9 +14,11 @@ version = "1.6"
 default-features = false
 features = ["mpfr", "use-system-libs"]
 
-[profile.release]
-debug = "line-tables-only" # Or `true` for full debug info
-overflow-checks = false # Disable if not needed for profiling
+[profile.release-prof]
+inherits = "release"
+debug = true # Essential for detailed call stacks
+lto = "fat"
+codegen-units = 1
 
 [build]
 rustflags = ["-C", "force-frame-pointers=yes"]
