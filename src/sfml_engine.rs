@@ -155,13 +155,6 @@ impl FractalEngine for SfmlEngine {
         }
 
         if ui
-            .radio_value(&mut ctx.backend, FractalBackend::F32, "32-bit float")
-            .clicked()
-        {
-            self.set_backend(FractalBackend::F32).unwrap();
-        }
-
-        if ui
             .radio_value(&mut ctx.backend, FractalBackend::F64, "64-bit float")
             .clicked()
         {
@@ -174,6 +167,8 @@ impl FractalEngine for SfmlEngine {
                 self.set_seq_iter(ctx.seq_iter).unwrap();
             }
         });
+
+        ui.horizontal(|ui| {});
 
         ui.horizontal(|ui| {
             ui.label("Quality : ");

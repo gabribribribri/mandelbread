@@ -4,13 +4,14 @@ use std::{
         mpsc::{self, Receiver, Sender, TryRecvError},
     },
     thread,
+    time::Instant,
 };
 
 use rug::{Assign, ops::MulFrom};
 use sfml::{
     cpp::FBox,
     graphics::{
-        Color, FloatRect, IntRect, RenderTarget, RenderWindow, Sprite, Texture, Transformable, View,
+        Color, FloatRect, Rect, RenderTarget, RenderWindow, Sprite, Texture, Transformable, View,
     },
     window::{ContextSettings, Event, Style},
 };
@@ -30,11 +31,11 @@ pub struct SfmlEngineInternal<'a> {
 
 struct SfmlEngineWorkerExternal {
     tx: Sender<WorkerNotif>,
-    rx: Receiver<Vec<u8>>,
+    rx: Receiver<(Vec<u8>, Rect<u32>)>,
 }
 
 pub enum WorkerNotif {
-    SetRenderRect(IntRect),
+    SetRenderRect(Rect<u32>),
     Reload,
     Shutdown,
 }
@@ -170,36 +171,53 @@ impl<'a> SfmlEngineInternal<'a> {
         self.win.set_view(
             &*View::from_rect(FloatRect::new(0.0, 0.0, width as f32, height as f32)).unwrap(),
         );
-
-        let render_rect_width = width as i32 / self.workers.len() as i32;
-        for i in 0..self.workers.len() {
-            self.workers[i]
-                .tx
-                .send(WorkerNotif::SetRenderRect(IntRect {
-                    left: i as i32 * render_rect_width,
-                    top: 0,
-                    width: render_rect_width,
-                    height: height as i32,
-                }))
-                .unwrap();
-        }
     }
 
     fn reload_internal(&mut self) {
+        // Start the chronometer
+        let start = Instant::now();
+
+        // Resize self.texture and worker's RenderRect if necessary
+        if self.texture.size() != self.win.size() {
+            // Changing Texture Size
+            self.texture
+                .create(self.win.size().x, self.win.size().y)
+                .unwrap();
+
+            // Changing Workers RenderRect
+            let render_rect_width = self.texture.size().x / self.workers.len() as u32;
+            for i in 0..self.workers.len() {
+                self.workers[i]
+                    .tx
+                    .send(WorkerNotif::SetRenderRect(Rect {
+                        left: i as u32 * render_rect_width,
+                        top: 0,
+                        width: render_rect_width,
+                        height: self.texture.size().y,
+                    }))
+                    .unwrap();
+            }
+        }
+
+        // Send the start message to the workers !
         for worker in &self.workers {
             worker.tx.send(WorkerNotif::Reload).unwrap();
         }
 
-        let render_rect_width = self.win.size().x / self.workers.len() as u32;
-        for (i, worker) in self.workers.iter().enumerate() {
-            let data = worker.rx.recv().unwrap();
+        // Receive raw pixel data and upload it to GPU
+        for worker in &self.workers {
+            let (pixels, rrect) = worker.rx.recv().unwrap();
+
             self.texture.update_from_pixels(
-                &*data,
-                render_rect_width,
-                self.win.size().y,
-                i as u32 * render_rect_width,
-                0,
+                &*pixels,
+                rrect.width,
+                rrect.height,
+                rrect.left,
+                rrect.top,
             );
         }
+
+        // Stop the chronometer and report time
+        self.ctx_rwl.write().unwrap().reload_dur = start.elapsed();
     }
 }

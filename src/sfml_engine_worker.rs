@@ -1,12 +1,9 @@
-use std::{
-    sync::{
-        Arc, RwLock,
-        mpsc::{Receiver, Sender},
-    },
-    time::Instant,
+use std::sync::{
+    Arc, RwLock,
+    mpsc::{Receiver, Sender},
 };
 
-use sfml::graphics::IntRect;
+use sfml::graphics::Rect;
 
 use crate::{
     fractal_complex::Complex,
@@ -16,67 +13,62 @@ use crate::{
 
 pub struct SfmlEngineWorkerInternal {
     notif_rx: Receiver<WorkerNotif>,
-    data_tx: Sender<Vec<u8>>,
+    data_tx: Sender<(Vec<u8>, Rect<u32>)>,
     ctx_rwl: Arc<RwLock<FractalContext>>,
-    render_rect: IntRect,
+    render_rect: Rect<u32>,
 }
 
 impl SfmlEngineWorkerInternal {
     pub fn build_and_run(
         notif_rx: Receiver<WorkerNotif>,
-        data_tx: Sender<Vec<u8>>,
+        data_tx: Sender<(Vec<u8>, Rect<u32>)>,
         ctx_rwl: Arc<RwLock<FractalContext>>,
     ) {
         let mut worker = SfmlEngineWorkerInternal {
             ctx_rwl,
             notif_rx,
             data_tx,
-            render_rect: IntRect::default(),
+            render_rect: Rect::<u32>::default(),
         };
 
+        worker.run()
+    }
+
+    fn run(&mut self) {
         loop {
-            match worker.notif_rx.recv().unwrap() {
+            match self.notif_rx.recv().unwrap() {
                 WorkerNotif::Reload => {
-                    let data = worker.choose_reload_internal();
-                    worker.data_tx.send(data).unwrap();
+                    let pixels = self.choose_reload_internal();
+                    self.data_tx.send((pixels, self.render_rect)).unwrap();
                 }
                 WorkerNotif::Shutdown => break,
-                WorkerNotif::SetRenderRect(render_rect) => worker.render_rect = render_rect,
+                WorkerNotif::SetRenderRect(render_rect) => self.render_rect = render_rect,
             }
         }
     }
 
     fn choose_reload_internal(&mut self) -> Vec<u8> {
-        let backend;
-        {
-            let ctx = self.ctx_rwl.read().unwrap();
-            backend = ctx.backend;
-        }
-        // TODO I forgot what we must do with the time... But do something.
-        let start = Instant::now();
-
-        let data = match backend {
+        let backend = self.ctx_rwl.read().unwrap().backend;
+        match backend {
             FractalBackend::F64 => self.reload_internal_f64(),
-            _ => panic!("This backend is not implemented for SFML"),
-        };
-
-        self.ctx_rwl.write().unwrap().reload_dur = start.elapsed();
-
-        data
+        }
     }
 
     fn reload_internal_f64(&mut self) -> Vec<u8> {
         let ctx = self.ctx_rwl.read().unwrap().clone();
         let center_c64 = Complex::new(ctx.center.real().to_f64(), ctx.center.imag().to_f64());
         let window_c64 = Complex::new(ctx.window.real().to_f64(), ctx.window.imag().to_f64());
-        let res_lodiv_u32 = (ctx.res.x / ctx.lodiv, ctx.res.y / ctx.lodiv);
-        let res_lodiv_c64 = Complex::new(res_lodiv_u32.0 as f64, res_lodiv_u32.1 as f64);
+        let res_lodiv_c64 = Complex::new(
+            (ctx.res.x / ctx.lodiv) as f64,
+            (ctx.res.y / ctx.lodiv) as f64,
+        );
         let seq_iter = ctx.seq_iter;
-        let mut pixels = vec![0; res_lodiv_u32.0 as usize * res_lodiv_u32.1 as usize * 4];
+        let mut pixels =
+            vec![0; self.render_rect.width as usize * self.render_rect.height as usize * 4];
         drop(ctx);
 
-        for x in 0..res_lodiv_u32.0 {
-            for y in 0..res_lodiv_u32.1 {
+        for x in 0..self.render_rect.width {
+            for y in 0..self.render_rect.height {
                 let c = Complex::map_pixel_value_f64(
                     res_lodiv_c64,
                     center_c64,
@@ -94,10 +86,10 @@ impl SfmlEngineWorkerInternal {
                 }
                 if distance <= 100.0 {
                     // new_image.set_pixel(x, y, Color::BLACK).unwrap()
-                    let coo = 4 * (res_lodiv_u32.1 * y + x) as usize;
-                    pixels[coo..coo + 4].copy_from_slice(&[0; 4]);
+                    let coo = 4 * (self.render_rect.width * y + x) as usize;
+                    pixels[coo..coo + 4].copy_from_slice(&[0, 0, 0, 255]);
                 } else {
-                    let coo = 4 * (res_lodiv_u32.1 * y + x) as usize;
+                    let coo = 4 * (self.render_rect.width * y + x) as usize;
                     let color = Complex::distance_gradient_f64(distance);
                     pixels[coo..coo + 4].copy_from_slice(&color);
                 }
