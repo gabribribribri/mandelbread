@@ -144,6 +144,13 @@ impl FractalEngine for SfmlEngine {
         Ok(())
     }
 
+    fn set_converge_distance(&mut self, converge_distance: f64) -> Result<(), FractalEngineError> {
+        {
+            self.ctx_rwl.write().unwrap().converge_distance = converge_distance;
+        }
+        self.reload()
+    }
+
     fn gui_central_panel(&mut self, ui: &mut Ui) {
         let mut ctx;
         {
@@ -172,6 +179,16 @@ impl FractalEngine for SfmlEngine {
             ui.label("Sequence Iterations : ");
             if ui.add(egui::DragValue::new(&mut ctx.seq_iter)).changed() {
                 self.set_seq_iter(ctx.seq_iter).unwrap();
+            }
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Converge Distance : ");
+            if ui
+                .add(egui::DragValue::new(&mut ctx.converge_distance))
+                .changed()
+            {
+                self.set_converge_distance(ctx.converge_distance).unwrap();
             }
         });
 

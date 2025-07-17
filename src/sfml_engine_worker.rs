@@ -63,6 +63,7 @@ impl SfmlEngineWorkerInternal {
             (ctx.res.y / ctx.lodiv) as f64,
         );
         let seq_iter = ctx.seq_iter;
+        let converge_distance = ctx.converge_distance;
         let mut pixels =
             vec![0; self.render_rect.width as usize * self.render_rect.height as usize * 4];
         drop(ctx);
@@ -83,11 +84,11 @@ impl SfmlEngineWorkerInternal {
                 for _i in 1..seq_iter {
                     n.fsq_add_f64(c);
                     distance = n.re.abs() + n.im.abs();
-                    if distance >= 100.0 {
+                    if distance >= converge_distance {
                         break;
                     }
                 }
-                if distance <= 100.0 {
+                if distance <= converge_distance {
                     // new_image.set_pixel(x, y, Color::BLACK).unwrap()
                     let coo = 4 * (self.render_rect.width * y + x) as usize;
                     pixels[coo..coo + 4].copy_from_slice(&[0, 0, 0, 255]);

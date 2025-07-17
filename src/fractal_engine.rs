@@ -25,6 +25,7 @@ pub struct FractalContext {
     pub reload_dur: Duration,
     pub engine_enabled: bool,
     pub worker_count: usize,
+    pub converge_distance: f64,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -55,6 +56,7 @@ impl Default for FractalContext {
             reload_dur: Duration::ZERO,
             engine_enabled: true,
             worker_count: 1,
+            converge_distance: 100.0,
         }
     }
 }
@@ -79,6 +81,8 @@ pub trait FractalEngine {
     fn set_workers(&mut self, workers: usize) -> Result<(), FractalEngineError>;
 
     fn set_backend(&mut self, backend: FractalBackend) -> Result<(), FractalEngineError>;
+
+    fn set_converge_distance(&mut self, converge_distance: f64) -> Result<(), FractalEngineError>;
 
     fn gui_bottom_panel(&mut self, ui: &mut egui::Ui);
 
