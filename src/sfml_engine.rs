@@ -49,29 +49,21 @@ impl SfmlEngine {
 }
 
 impl FractalEngine for SfmlEngine {
-    fn commence(&self) -> Result<(), FractalEngineError> {
+    fn commence(&self) {
         self.ctx_rwl.write().unwrap().engine_enabled = true;
-        match self.notif_tx.send(FractalNotif::Commence) {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                println!("Cannot start the internal engine : {}", e);
-                Err(FractalEngineError::SendError)
-            }
-        }
+        self.notif_tx
+            .send(FractalNotif::Commence)
+            .expect("Cannot start the internal engine")
     }
 
-    fn shutdown(&mut self) -> Result<(), FractalEngineError> {
+    fn shutdown(&mut self) {
         self.ctx_rwl.write().unwrap().engine_enabled = false;
-        match self.notif_tx.send(FractalNotif::Shutdown) {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                println!("Cannot shutdown the internal engine : {}", e);
-                Err(FractalEngineError::SendError)
-            }
-        }
+        self.notif_tx
+            .send(FractalNotif::Shutdown)
+            .expect("Cannot shutdown the internal engine")
     }
 
-    fn reset_view(&mut self) -> Result<(), FractalEngineError> {
+    fn reset_view(&mut self) {
         let mut ctx = self.ctx_rwl.write().unwrap();
         ctx.center = rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, -0.5);
         ctx.window = rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, (2.66, 2.0));
@@ -83,17 +75,13 @@ impl FractalEngine for SfmlEngine {
         self.reload()
     }
 
-    fn reload(&mut self) -> Result<(), FractalEngineError> {
-        match self.notif_tx.send(FractalNotif::Reload) {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                println!("Cannot reload the internal engine : {}", e);
-                Err(FractalEngineError::SendError)
-            }
-        }
+    fn reload(&mut self) {
+        self.notif_tx
+            .send(FractalNotif::Reload)
+            .expect("Cannot reload the internal engine")
     }
 
-    fn move_window(&mut self, trsln: Complex<f32>) -> Result<(), FractalEngineError> {
+    fn move_window(&mut self, trsln: Complex<f32>) {
         let mut ctx = self.ctx_rwl.write().unwrap();
 
         let mut real_offset = ctx.window.real().clone();
@@ -107,12 +95,12 @@ impl FractalEngine for SfmlEngine {
         self.reload()
     }
 
-    fn zoom_view(&mut self, zoom: f32) -> Result<(), FractalEngineError> {
+    fn zoom_view(&mut self, zoom: f32) {
         self.ctx_rwl.write().unwrap().window *= zoom;
         self.reload()
     }
 
-    fn set_lodiv(&mut self, lodiv: u32) -> Result<(), FractalEngineError> {
+    fn set_lodiv(&mut self, lodiv: u32) {
         {
             let mut ctx = self.ctx_rwl.write().unwrap();
             ctx.lodiv = lodiv;
@@ -121,24 +109,23 @@ impl FractalEngine for SfmlEngine {
         self.reload()
     }
 
-    fn set_backend(&mut self, backend: FractalBackend) -> Result<(), FractalEngineError> {
+    fn set_backend(&mut self, backend: FractalBackend) {
         self.ctx_rwl.write().unwrap().backend = backend;
         self.reload()
     }
 
-    fn set_seq_iter(&mut self, seq_iter: u32) -> Result<(), FractalEngineError> {
+    fn set_seq_iter(&mut self, seq_iter: u32) {
         // TODO it would be cool if I could reload here...
         // nevermind, although it is squechy...
         self.ctx_rwl.write().unwrap().seq_iter = seq_iter;
         self.reload()
     }
 
-    fn set_workers(&mut self, workers: usize) -> Result<(), FractalEngineError> {
+    fn set_workers(&mut self, workers: usize) {
         self.ctx_rwl.write().unwrap().worker_count = workers;
-        Ok(())
     }
 
-    fn set_converge_distance(&mut self, converge_distance: f64) -> Result<(), FractalEngineError> {
+    fn set_converge_distance(&mut self, converge_distance: f64) {
         self.ctx_rwl.write().unwrap().converge_distance = converge_distance;
         self.reload()
     }
@@ -157,20 +144,19 @@ impl FractalEngine for SfmlEngine {
                 true => self.commence(),
                 false => self.shutdown(),
             }
-            .unwrap()
         }
 
         if ui
             .radio_value(&mut ctx.backend, FractalBackend::F64, "64-bit float")
             .clicked()
         {
-            self.set_backend(FractalBackend::F64).unwrap();
+            self.set_backend(FractalBackend::F64);
         }
 
         ui.horizontal(|ui| {
             ui.label("Sequence Iterations : ");
             if ui.add(egui::DragValue::new(&mut ctx.seq_iter)).changed() {
-                self.set_seq_iter(ctx.seq_iter).unwrap();
+                self.set_seq_iter(ctx.seq_iter);
             }
         });
 
@@ -180,14 +166,14 @@ impl FractalEngine for SfmlEngine {
                 .add(egui::DragValue::new(&mut ctx.converge_distance))
                 .changed()
             {
-                self.set_converge_distance(ctx.converge_distance).unwrap();
+                self.set_converge_distance(ctx.converge_distance);
             }
         });
 
         ui.horizontal(|ui| {
             ui.label("Workers : ");
             if ui.button(" - ").clicked() && ctx.worker_count >= 1 {
-                self.set_workers(ctx.worker_count - 1).unwrap();
+                self.set_workers(ctx.worker_count - 1);
             }
             if ui
                 .add(
@@ -197,10 +183,10 @@ impl FractalEngine for SfmlEngine {
                 )
                 .changed()
             {
-                self.set_workers(ctx.worker_count).unwrap();
+                self.set_workers(ctx.worker_count);
             }
             if ui.button(" + ").clicked() && ctx.worker_count <= 256 {
-                self.set_workers(ctx.worker_count + 1).unwrap();
+                self.set_workers(ctx.worker_count + 1);
             }
         });
 
@@ -214,57 +200,57 @@ impl FractalEngine for SfmlEngine {
                 )
                 .changed()
             {
-                self.set_lodiv(ctx.lodiv).unwrap();
+                self.set_lodiv(ctx.lodiv);
             }
             if ui
                 .selectable_label(ctx.lodiv == lodiv::HIGHEST, "HIGHEST")
                 .clicked()
             {
-                self.set_lodiv(lodiv::HIGHEST).unwrap();
+                self.set_lodiv(lodiv::HIGHEST);
             }
             if ui
                 .selectable_label(ctx.lodiv == lodiv::FAST, "FAST")
                 .clicked()
             {
-                self.set_lodiv(lodiv::FAST).unwrap();
+                self.set_lodiv(lodiv::FAST);
             }
             if ui
                 .selectable_label(ctx.lodiv == lodiv::FASTER, "FASTER")
                 .clicked()
             {
-                self.set_lodiv(lodiv::FASTER).unwrap();
+                self.set_lodiv(lodiv::FASTER);
             }
             if ui
                 .selectable_label(ctx.lodiv == lodiv::FASTEST, "FASTEST")
                 .clicked()
             {
-                self.set_lodiv(lodiv::FASTEST).unwrap();
+                self.set_lodiv(lodiv::FASTEST);
             }
         });
 
         ui.horizontal(|ui| {
             ui.label("Movements :");
             if ui.button("Left").clicked() {
-                self.move_window(Complex::new(-0.2, 0.0)).unwrap();
+                self.move_window(Complex::new(-0.2, 0.0));
             }
             if ui.button("Down").clicked() {
-                self.move_window(Complex::new(0.0, -0.2)).unwrap();
+                self.move_window(Complex::new(0.0, -0.2));
             }
             if ui.button("Up").clicked() {
-                self.move_window(Complex::new(0.0, 0.2)).unwrap();
+                self.move_window(Complex::new(0.0, 0.2));
             }
             if ui.button("Right").clicked() {
-                self.move_window(Complex::new(0.2, 0.0)).unwrap();
+                self.move_window(Complex::new(0.2, 0.0));
             }
         });
 
         ui.horizontal(|ui| {
             ui.label("Zoom : ");
             if ui.button("Outside").clicked() {
-                self.zoom_view(1.1).unwrap();
+                self.zoom_view(1.1);
             }
             if ui.button("Inside").clicked() {
-                self.zoom_view(0.9).unwrap();
+                self.zoom_view(0.9);
             }
         });
 
@@ -272,11 +258,11 @@ impl FractalEngine for SfmlEngine {
             .button(RichText::new("RELOAD").size(12.0).extra_letter_spacing(3.0))
             .clicked()
         {
-            self.reload().unwrap()
+            self.reload()
         }
 
         if ui.button("RESET VIEW").clicked() {
-            self.reset_view().unwrap();
+            self.reset_view();
         }
     }
 

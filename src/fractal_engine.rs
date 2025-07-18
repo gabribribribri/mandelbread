@@ -40,11 +40,6 @@ pub enum FractalNotif {
     Reload,
 }
 
-#[derive(Debug)]
-pub enum FractalEngineError {
-    SendError,
-}
-
 impl Default for FractalContext {
     fn default() -> Self {
         Self {
@@ -64,27 +59,27 @@ impl Default for FractalContext {
 }
 
 pub trait FractalEngine {
-    fn commence(&self) -> Result<(), FractalEngineError>;
+    fn commence(&self);
 
-    fn shutdown(&mut self) -> Result<(), FractalEngineError>;
+    fn shutdown(&mut self);
 
-    fn reset_view(&mut self) -> Result<(), FractalEngineError>;
+    fn reset_view(&mut self);
 
-    fn reload(&mut self) -> Result<(), FractalEngineError>;
+    fn reload(&mut self);
 
-    fn move_window(&mut self, translation: Complex<f32>) -> Result<(), FractalEngineError>;
+    fn move_window(&mut self, translation: Complex<f32>);
 
-    fn zoom_view(&mut self, zoom: f32) -> Result<(), FractalEngineError>;
+    fn zoom_view(&mut self, zoom: f32);
 
-    fn set_lodiv(&mut self, lodiv: u32) -> Result<(), FractalEngineError>;
+    fn set_lodiv(&mut self, lodiv: u32);
 
-    fn set_seq_iter(&mut self, seq_iter: u32) -> Result<(), FractalEngineError>;
+    fn set_seq_iter(&mut self, seq_iter: u32);
 
-    fn set_workers(&mut self, workers: usize) -> Result<(), FractalEngineError>;
+    fn set_workers(&mut self, workers: usize);
 
-    fn set_backend(&mut self, backend: FractalBackend) -> Result<(), FractalEngineError>;
+    fn set_backend(&mut self, backend: FractalBackend);
 
-    fn set_converge_distance(&mut self, converge_distance: f64) -> Result<(), FractalEngineError>;
+    fn set_converge_distance(&mut self, converge_distance: f64);
 
     fn gui_bottom_panel(&mut self, ui: &mut egui::Ui);
 
