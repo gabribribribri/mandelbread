@@ -4,7 +4,7 @@ use std::{
         mpsc::{self, Receiver, Sender, TryRecvError},
     },
     thread,
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use rug::{Assign, ops::MulFrom};
@@ -31,7 +31,7 @@ pub struct SfmlEngineInternal<'a> {
 
 struct SfmlEngineWorkerExternal {
     tx: Sender<WorkerNotif>,
-    rx: Receiver<(Vec<u8>, Rect<u32>)>,
+    rx: Receiver<WorkerResult>,
 }
 
 pub enum WorkerNotif {
@@ -41,9 +41,9 @@ pub enum WorkerNotif {
 }
 
 pub struct WorkerResult {
-    pixels: Vec<u8>,
-    rrect: Rect<u32>,
-    reload_dur: Duration,
+    pub pixels: Vec<u8>,
+    pub rrect: Rect<u32>,
+    pub reload_dur: Duration,
 }
 
 impl<'a> SfmlEngineInternal<'a> {
@@ -179,6 +179,7 @@ impl<'a> SfmlEngineInternal<'a> {
     }
 
     fn manage_workers(&mut self, new_worker_count: usize) {
+        let mut ctx = self.ctx_rwl.write().unwrap();
         if new_worker_count == self.workers.len() {
             panic!("Bruh qu'est-ce que tu me call, y'a rien changé ô_o");
         } else if new_worker_count < self.workers.len() {
@@ -190,6 +191,7 @@ impl<'a> SfmlEngineInternal<'a> {
                     .send(WorkerNotif::Shutdown)
                     .unwrap();
                 self.workers.pop().unwrap();
+                ctx.reload_durs.pop().unwrap();
             }
         } else if new_worker_count > self.workers.len() {
             for id in 0..(new_worker_count - self.workers.len()) {
@@ -212,6 +214,7 @@ impl<'a> SfmlEngineInternal<'a> {
                     tx: worker_tx,
                     rx: worker_rx,
                 });
+                ctx.reload_durs.push(Duration::ZERO);
             }
         }
     }
@@ -238,9 +241,6 @@ impl<'a> SfmlEngineInternal<'a> {
     }
 
     fn reload_internal(&mut self) {
-        // Start the chronometer
-        let start = Instant::now();
-
         let (ctx_worker_count, ctx_lodiv, ctx_has_resized);
         {
             let ctx = self.ctx_rwl.read().unwrap();
@@ -274,8 +274,14 @@ impl<'a> SfmlEngineInternal<'a> {
         }
 
         // Receive raw pixel data and upload it to GPU
-        for worker in &self.workers {
-            let (pixels, rrect) = worker.rx.recv().unwrap();
+        for (id, worker) in self.workers.iter().enumerate() {
+            let WorkerResult {
+                pixels,
+                rrect,
+                reload_dur,
+            } = worker.rx.recv().unwrap();
+
+            self.ctx_rwl.write().unwrap().reload_durs[id] = reload_dur;
 
             self.texture.update_from_pixels(
                 &*pixels,
@@ -285,8 +291,5 @@ impl<'a> SfmlEngineInternal<'a> {
                 rrect.top,
             );
         }
-
-        // Stop the chronometer and report time
-        self.ctx_rwl.write().unwrap().reload_dur = start.elapsed();
     }
 }

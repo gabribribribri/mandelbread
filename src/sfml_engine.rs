@@ -285,7 +285,16 @@ impl FractalEngine for SfmlEngine {
 
         ui.horizontal(|ui| {
             ui.label(RichText::new("Reload Time :").strong());
-            ui.label(format!("{:?}", ctx.reload_dur));
+            ui.label(format!("{:?}", ctx.reload_durs.iter().max().unwrap()));
+        });
+
+        ui.collapsing("Worker Specific :", |ui| {
+            for (id, dur) in ctx.reload_durs.iter().enumerate() {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(format!("Worker {} :", id)).strong());
+                    ui.label(format!("{:?}", dur));
+                });
+            }
         });
 
         ui.horizontal(|ui| {
