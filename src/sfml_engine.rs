@@ -15,8 +15,7 @@ use rug::{
 use crate::{
     fractal_complex::Complex,
     fractal_engine::{
-        FRCTL_CTX_CMPLX_PREC, FractalBackend, FractalContext, FractalEngine, FractalEngineError,
-        FractalNotif, lodiv,
+        FRCTL_CTX_CMPLX_PREC, FractalBackend, FractalContext, FractalEngine, FractalNotif, lodiv,
     },
     sfml_engine_internal::SfmlEngineInternal,
 };
