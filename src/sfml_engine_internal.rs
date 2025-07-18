@@ -13,6 +13,7 @@ use sfml::{
     graphics::{
         Color, FloatRect, Rect, RenderTarget, RenderWindow, Sprite, Texture, Transformable, View,
     },
+    system::Vector2f,
     window::{ContextSettings, Event, Style, mouse::Button},
 };
 
@@ -135,13 +136,13 @@ impl<'a> SfmlEngineInternal<'a> {
                 Event::MouseWheelScrolled {
                     wheel: _,
                     delta,
-                    x: _,
-                    y: _,
+                    x,
+                    y,
                 } => {
                     if delta > 0.0 {
-                        self.zoom_view_internal(1.0 / 1.1);
+                        self.zoom_view_scrollwheel(1.0 / 1.1, x, y);
                     } else {
-                        self.zoom_view_internal(1.1);
+                        self.zoom_view_scrollwheel(1.1, x, y);
                     }
                 }
                 _ => (),
@@ -206,8 +207,22 @@ impl<'a> SfmlEngineInternal<'a> {
         self.reload_internal();
     }
 
-    fn zoom_view_internal(&mut self, zoom: f32) {
-        self.ctx_rwl.write().unwrap().window *= zoom;
+    fn zoom_view_scrollwheel(&mut self, zoom: f32, x: i32, y: i32) {
+        let ctr_pxl = Vector2f::new(self.win.size().x as f32, self.win.size().y as f32) / 2.0;
+        let factor = 1.0 - 1.0 / zoom;
+        let ctr_offset = Vector2f::new(ctr_pxl.x - x as f32, ctr_pxl.y - y as f32) * factor;
+        let new_ctr_pxl = ctr_offset + ctr_pxl;
+
+        let mut ctx = self.ctx_rwl.write().unwrap();
+        ctx.center = fractal_complex::map_pixel_value_rug(
+            self.win.size(),
+            &ctx.center,
+            &ctx.window,
+            (new_ctr_pxl.x as i32, new_ctr_pxl.y as i32),
+        );
+        ctx.window *= zoom;
+        drop(ctx);
+
         self.reload_internal();
     }
 
