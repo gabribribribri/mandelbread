@@ -12,4 +12,4 @@ SFML SFML-devel
 # Group install this with dnf4:
 "Development Tools"
 ```
-Some of them doesn't even exist, that's ok
+Some of them don't even exist, that's ok
