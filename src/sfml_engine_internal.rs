@@ -126,6 +126,7 @@ impl<'a> SfmlEngineInternal<'a> {
             match event {
                 Event::Closed => self.shutdown_internal(),
                 Event::Resized { width, height } => self.resize_internal(width, height),
+                // Event::Mouse
                 _ => (),
             }
         }

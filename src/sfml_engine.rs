@@ -114,10 +114,7 @@ impl FractalEngine for SfmlEngine {
     }
 
     fn set_seq_iter(&mut self, seq_iter: u32) {
-        // TODO it would be cool if I could reload here...
-        // nevermind, although it is squechy...
         self.ctx_rwl.write().unwrap().seq_iter = seq_iter;
-        self.reload()
     }
 
     fn set_workers(&mut self, workers: usize) {
@@ -126,7 +123,6 @@ impl FractalEngine for SfmlEngine {
 
     fn set_converge_distance(&mut self, converge_distance: f64) {
         self.ctx_rwl.write().unwrap().converge_distance = converge_distance;
-        self.reload()
     }
 
     fn gui_central_panel(&mut self, ui: &mut Ui) {
@@ -154,18 +150,23 @@ impl FractalEngine for SfmlEngine {
 
         ui.horizontal(|ui| {
             ui.label("Sequence Iterations : ");
-            if ui.add(egui::DragValue::new(&mut ctx.seq_iter)).changed() {
+            let drag_value = ui.add(egui::DragValue::new(&mut ctx.seq_iter));
+            if drag_value.changed() {
                 self.set_seq_iter(ctx.seq_iter);
+            }
+            if drag_value.drag_stopped() {
+                self.reload();
             }
         });
 
         ui.horizontal(|ui| {
             ui.label("Converge Distance : ");
-            if ui
-                .add(egui::DragValue::new(&mut ctx.converge_distance))
-                .changed()
-            {
+            let drag_value = ui.add(egui::DragValue::new(&mut ctx.converge_distance));
+            if drag_value.changed() {
                 self.set_converge_distance(ctx.converge_distance);
+            }
+            if drag_value.drag_stopped() {
+                self.reload();
             }
         });
 
