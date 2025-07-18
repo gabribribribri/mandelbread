@@ -32,14 +32,12 @@ impl GuiWrapper {
 impl eframe::App for GuiWrapper {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::SidePanel::left("left_panel")
-            .resizable(true)
+            .default_width(100.0)
             .show(ctx, |ui| self.left_panel(ui));
 
-        egui::TopBottomPanel::bottom("bottom_panel")
-            .resizable(true)
-            .show(ctx, |ui| match self.selected_page {
-                SelectedPage::Sfml => self.sfml_engine.gui_bottom_panel(ui),
-            });
+        egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| match self.selected_page {
+            SelectedPage::Sfml => self.sfml_engine.gui_bottom_panel(ui),
+        });
 
         egui::CentralPanel::default().show(ctx, |ui| match self.selected_page {
             SelectedPage::Sfml => self.sfml_engine.gui_central_panel(ui),
