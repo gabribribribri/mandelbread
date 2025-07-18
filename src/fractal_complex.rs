@@ -1,3 +1,9 @@
+use rug::{
+    float::Round,
+    ops::{AddFrom, DivAssignRound, MulAssignRound},
+};
+use sfml::system::Vector2;
+
 #[derive(Clone, Copy)]
 pub struct Complex<T> {
     pub re: T,
@@ -52,4 +58,27 @@ impl Complex<f64> {
 
         [red as u8, green as u8, blue as u8, 255]
     }
+}
+
+pub fn map_pixel_value_rug(
+    res: Vector2<u32>,
+    center: &rug::Complex,
+    window: &rug::Complex,
+    value: (i32, i32),
+) -> rug::Complex {
+    let mut result = window.clone();
+    result
+        .mut_real()
+        .mul_assign_round(-(res.x as i32) + 2 * value.0, Round::Nearest);
+    result
+        .mut_imag()
+        .mul_assign_round(-(res.y as i32) + 2 * value.1, Round::Nearest);
+    result
+        .mut_real()
+        .div_assign_round(2 * res.x, Round::Nearest);
+    result
+        .mut_imag()
+        .div_assign_round(2 * res.y, Round::Nearest);
+    result.add_from(center);
+    result
 }

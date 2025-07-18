@@ -13,10 +13,11 @@ use sfml::{
     graphics::{
         Color, FloatRect, Rect, RenderTarget, RenderWindow, Sprite, Texture, Transformable, View,
     },
-    window::{ContextSettings, Event, Style},
+    window::{ContextSettings, Event, Style, mouse::Button},
 };
 
 use crate::{
+    fractal_complex,
     fractal_engine::{FractalContext, FractalNotif},
     sfml_engine_worker::SfmlEngineWorkerInternal,
 };
@@ -126,7 +127,23 @@ impl<'a> SfmlEngineInternal<'a> {
             match event {
                 Event::Closed => self.shutdown_internal(),
                 Event::Resized { width, height } => self.resize_internal(width, height),
-                // Event::Mouse
+                Event::MouseButtonReleased { x, y, button } => {
+                    if button == Button::Left {
+                        self.move_window_from_mouse_pos(x, y);
+                    }
+                }
+                Event::MouseWheelScrolled {
+                    wheel: _,
+                    delta,
+                    x: _,
+                    y: _,
+                } => {
+                    if delta > 0.0 {
+                        self.zoom_view_internal(1.0 / 1.1);
+                    } else {
+                        self.zoom_view_internal(1.1);
+                    }
+                }
                 _ => (),
             }
         }
@@ -177,6 +194,21 @@ impl<'a> SfmlEngineInternal<'a> {
         self.win.set_view(
             &*View::from_rect(FloatRect::new(0.0, 0.0, width as f32, height as f32)).unwrap(),
         );
+    }
+
+    fn move_window_from_mouse_pos(&mut self, x: i32, y: i32) {
+        let mut ctx = self.ctx_rwl.write().unwrap();
+
+        ctx.center =
+            fractal_complex::map_pixel_value_rug(self.win.size(), &ctx.center, &ctx.window, (x, y));
+
+        drop(ctx);
+        self.reload_internal();
+    }
+
+    fn zoom_view_internal(&mut self, zoom: f32) {
+        self.ctx_rwl.write().unwrap().window *= zoom;
+        self.reload_internal();
     }
 
     fn manage_workers(&mut self, new_worker_count: usize) {

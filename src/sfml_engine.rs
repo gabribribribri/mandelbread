@@ -250,7 +250,7 @@ impl FractalEngine for SfmlEngine {
                 self.zoom_view(1.1);
             }
             if ui.button("Inside").clicked() {
-                self.zoom_view(0.9);
+                self.zoom_view(1.0 / 1.1);
             }
         });
 
@@ -285,7 +285,11 @@ impl FractalEngine for SfmlEngine {
 
         ui.horizontal(|ui| {
             ui.label(RichText::new("Resolution :").strong());
-            ui.label(format!("{}x{}", ctx.res.x, ctx.res.y));
+            ui.label(format!(
+                "{}x{}",
+                ctx.res.x / ctx.lodiv,
+                ctx.res.y / ctx.lodiv
+            ));
         });
 
         ui.horizontal(|ui| {
