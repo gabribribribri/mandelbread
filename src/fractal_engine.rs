@@ -32,6 +32,7 @@ pub struct FractalContext {
 #[derive(Copy, Clone, PartialEq)]
 pub enum FractalBackend {
     F64,
+    Rug,
 }
 
 pub enum FractalNotif {

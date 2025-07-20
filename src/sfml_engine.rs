@@ -45,6 +45,12 @@ impl SfmlEngine {
             ctx_rwl,
         }
     }
+
+    fn set_rug_prec(&mut self, prec: u32) {
+        let mut ctx = self.ctx_rwl.write().unwrap();
+        ctx.window.set_prec(prec);
+        ctx.center.set_prec(prec);
+    }
 }
 
 impl FractalEngine for SfmlEngine {
@@ -130,6 +136,7 @@ impl FractalEngine for SfmlEngine {
         {
             ctx = self.ctx_rwl.read().unwrap().clone();
         } // drops the mic
+        let mut rug_prec = ctx.window.prec().0;
 
         ui.heading("SFML Engine");
         ui.separator();
@@ -142,11 +149,36 @@ impl FractalEngine for SfmlEngine {
         }
 
         if ui
-            .radio_value(&mut ctx.backend, FractalBackend::F64, "64-bit float")
+            .radio_value(
+                &mut ctx.backend,
+                FractalBackend::F64,
+                "64-bit floating point",
+            )
             .clicked()
         {
             self.set_backend(FractalBackend::F64);
         }
+        if ui
+            .radio_value(
+                &mut ctx.backend,
+                FractalBackend::Rug,
+                "Rug arbitrary precision",
+            )
+            .clicked()
+        {
+            self.set_backend(FractalBackend::Rug);
+        }
+
+        ui.horizontal(|ui| {
+            ui.label("Precision : ");
+            let drag_value = ui.add(egui::DragValue::new(&mut rug_prec).range(64..=u32::MAX));
+            if drag_value.changed() {
+                self.set_rug_prec(rug_prec);
+            }
+            if drag_value.drag_stopped() {
+                self.reload();
+            }
+        });
 
         ui.horizontal(|ui| {
             ui.label("Sequence Iterations : ");

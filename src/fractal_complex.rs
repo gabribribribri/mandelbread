@@ -58,6 +58,10 @@ impl Complex<f64> {
 
         [red as u8, green as u8, blue as u8, 255]
     }
+
+    pub fn abs_sum_f64(&self) -> f64 {
+        self.re.abs() + self.im.abs()
+    }
 }
 
 pub fn map_pixel_value_rug(
@@ -81,4 +85,13 @@ pub fn map_pixel_value_rug(
         .div_assign_round(2 * res.y, Round::Nearest);
     result.add_from(center);
     result
+}
+
+pub fn fsq_add_rug(n: &mut rug::Complex, c: &rug::Complex) {
+    n.square_mut();
+    n.add_from(c);
+}
+
+pub fn abs_sum_rug(n: &rug::Complex) -> f64 {
+    n.real().to_f64().abs() + n.imag().to_f64().abs()
 }

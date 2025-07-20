@@ -9,7 +9,7 @@ use std::{
 use sfml::graphics::Rect;
 
 use crate::{
-    fractal_complex::Complex,
+    fractal_complex::{self, Complex},
     fractal_engine::{FractalBackend, FractalContext},
     sfml_engine_internal::{WorkerNotif, WorkerResult},
 };
@@ -54,6 +54,7 @@ impl SfmlEngineWorkerInternal {
         let backend = self.ctx_rwl.read().unwrap().backend;
         match backend {
             FractalBackend::F64 => self.reload_internal_f64(),
+            FractalBackend::Rug => self.reload_internal_rug(),
         }
     }
 
@@ -85,7 +86,54 @@ impl SfmlEngineWorkerInternal {
                 let mut distance = 0.0;
                 for _i in 1..seq_iter {
                     n.fsq_add_f64(c);
-                    distance = n.re.abs() + n.im.abs();
+                    distance = n.abs_sum_f64();
+                    if distance >= converge_distance {
+                        break;
+                    }
+                }
+                if distance <= converge_distance {
+                    pixels.extend_from_slice(&[0, 0, 0, 255]);
+                } else {
+                    let color = Complex::distance_gradient_f64(distance);
+                    pixels.extend_from_slice(&color);
+                }
+            }
+        }
+
+        WorkerResult {
+            pixels,
+            rrect: self.rrect,
+            reload_dur: start.elapsed(),
+        }
+    }
+
+    fn reload_internal_rug(&mut self) -> WorkerResult {
+        let start = Instant::now();
+
+        let ctx = self.ctx_rwl.read().unwrap().clone();
+        let center = ctx.center.clone();
+        let window = ctx.window.clone();
+        let res = ctx.res / ctx.lodiv;
+        let seq_iter = ctx.seq_iter;
+        let converge_distance = ctx.converge_distance;
+        drop(ctx);
+
+        let mut pixels = Vec::with_capacity((self.rrect.width * self.rrect.height * 4) as usize);
+
+        for y in 0..self.rrect.height {
+            for x in 0..self.rrect.width {
+                let c = fractal_complex::map_pixel_value_rug(
+                    res,
+                    &center,
+                    &window,
+                    // Complex::new((self.rrect.left + x) as f64, (self.rrect.top + y) as f64),
+                    ((self.rrect.left + x) as i32, (self.rrect.top + y) as i32),
+                );
+                let mut n = c.clone();
+                let mut distance = 0.0;
+                for _i in 1..seq_iter {
+                    fractal_complex::fsq_add_rug(&mut n, &c);
+                    distance = fractal_complex::abs_sum_rug(&n);
                     if distance >= converge_distance {
                         break;
                     }
