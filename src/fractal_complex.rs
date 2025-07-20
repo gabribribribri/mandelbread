@@ -6,8 +6,8 @@ use rug::{
 use sfml::system::Vector2;
 
 // I don't know why but this is faster than `core::f64::<impl f64>::abs`
+#[inline]
 fn f_abs(n: f64) -> f64 {
-    // TODO try in a single u128
     f64::from_bits(0x7FFF_FFFF_FFFF_FFFF & n.to_bits())
 }
 
