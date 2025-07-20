@@ -279,10 +279,10 @@ impl FractalEngine for SfmlEngine {
         ui.horizontal(|ui| {
             ui.label("Zoom : ");
             if ui.button("Outside").clicked() {
-                self.zoom_view(1.1);
+                self.zoom_view(2.0);
             }
             if ui.button("Inside").clicked() {
-                self.zoom_view(1.0 / 1.1);
+                self.zoom_view(0.5);
             }
         });
 

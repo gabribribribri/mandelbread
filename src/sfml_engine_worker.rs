@@ -85,7 +85,7 @@ impl SfmlEngineWorkerInternal {
                 let mut n = c;
                 let mut distance = 0.0;
                 for _i in 1..seq_iter {
-                    n.fsq_add_f64(c);
+                    n.f_sq_add_f64(c);
                     distance = n.abs_sum_f64();
                     if distance >= converge_distance {
                         break;
@@ -132,7 +132,7 @@ impl SfmlEngineWorkerInternal {
                 let mut n = c.clone();
                 let mut distance = 0.0;
                 for _i in 1..seq_iter {
-                    fractal_complex::fsq_add_rug(&mut n, &c);
+                    n = fractal_complex::f_sq_add_rug(&n, &c);
                     distance = fractal_complex::abs_sum_rug(&n);
                     if distance >= converge_distance {
                         break;
