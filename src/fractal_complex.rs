@@ -7,8 +7,13 @@ use sfml::system::Vector2;
 
 // I don't know why but this is faster than `core::f64::<impl f64>::abs`
 #[inline]
-fn f_abs(n: f64) -> f64 {
+fn f_abs_f64(n: f64) -> f64 {
     f64::from_bits(0x7FFF_FFFF_FFFF_FFFF & n.to_bits())
+}
+
+#[inline]
+fn f_abs_f128(n: f128) -> f128 {
+    f128::from_bits(0x7FFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF & n.to_bits())
 }
 
 #[derive(Clone, Copy)]
@@ -44,11 +49,36 @@ impl Complex<f64> {
     }
 
     pub fn abs_sum_f64(&self) -> f64 {
-        f_abs(self.re) + f_abs(self.im)
+        f_abs_f64(self.re) + f_abs_f64(self.im)
     }
 }
 
-pub fn iter_gradient_f64(iter: u32, seq_iter: u32) -> [u8; 4] {
+impl Complex<f128> {
+    pub fn map_pixel_value_f128(
+        res: Complex<f128>,
+        center: Complex<f128>,
+        window: Complex<f128>,
+        value: Complex<f128>,
+    ) -> Complex<f128> {
+        Self::new(
+            center.re - (window.re / 2.0) + (value.re / res.re) * window.re,
+            center.im - (window.im / 2.0) + (value.im / res.im) * window.im,
+        )
+    }
+
+    pub fn f_sq_add_f128(&mut self, c: Complex<f128>) {
+        (self.re, self.im) = (
+            self.re * self.re - self.im * self.im + c.re,
+            2.0 * self.re * self.im + c.im,
+        );
+    }
+
+    pub fn abs_sum_f128(&self) -> f128 {
+        f_abs_f128(self.re) + f_abs_f128(self.im)
+    }
+}
+
+pub fn iter_gradient(iter: u32, seq_iter: u32) -> [u8; 4] {
     let iter = iter as f64;
     let middle = seq_iter as f64 * 0.35;
     let (red, green, blue);

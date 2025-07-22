@@ -170,6 +170,16 @@ impl FractalEngine for SfmlEngine {
         if ui
             .radio_value(
                 &mut ctx.backend,
+                FractalBackend::F128,
+                "128-bit floating point",
+            )
+            .clicked()
+        {
+            self.set_backend(FractalBackend::F128);
+        }
+        if ui
+            .radio_value(
+                &mut ctx.backend,
                 FractalBackend::Rug,
                 "Rug arbitrary precision",
             )
