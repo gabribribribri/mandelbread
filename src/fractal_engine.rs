@@ -64,6 +64,8 @@ pub trait FractalEngine {
 
     fn shutdown(&mut self);
 
+    fn reset_window(&mut self);
+
     fn reset_view(&mut self);
 
     fn reload(&mut self);

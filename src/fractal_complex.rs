@@ -43,32 +43,52 @@ impl Complex<f64> {
         );
     }
 
-    pub fn distance_gradient_f64(distance: f64) -> [u8; 4] {
-        const START: f64 = 100.0;
-        const END: f64 = 1500.0;
-        const HALF: f64 = (END - START) / 2.0;
-
-        let clamped_value = distance.clamp(START, END);
-        let (red, green, blue);
-
-        if clamped_value <= HALF {
-            let t = (clamped_value - START) / (HALF - START);
-            red = (1.0 - t) * 255.0;
-            green = t * 255.0;
-            blue = 0.0;
-        } else {
-            let t = (clamped_value - HALF) / (HALF - START);
-            red = 0.0;
-            green = (1.0 - t) * 255.0;
-            blue = t * 255.0;
-        }
-
-        [red as u8, green as u8, blue as u8, 255]
-    }
-
     pub fn abs_sum_f64(&self) -> f64 {
         f_abs(self.re) + f_abs(self.im)
     }
+}
+#[allow(dead_code)]
+pub fn distance_gradient(distance: f64) -> [u8; 4] {
+    const START: f64 = 100.0;
+    const END: f64 = 1500.0;
+    const HALF: f64 = (END - START) / 2.0;
+
+    let clamped_value = distance.clamp(START, END);
+    let (red, green, blue);
+
+    if clamped_value <= HALF {
+        let t = (clamped_value - START) / (HALF - START);
+        red = (1.0 - t) * 255.0;
+        green = t * 255.0;
+        blue = 0.0;
+    } else {
+        let t = (clamped_value - HALF) / (HALF - START);
+        red = 0.0;
+        green = (1.0 - t) * 255.0;
+        blue = t * 255.0;
+    }
+
+    [red as u8, green as u8, blue as u8, 255]
+}
+
+pub fn iter_gradient_f64(iter: u32, seq_iter: u32) -> [u8; 4] {
+    let iter = iter as f64;
+    let half = seq_iter as f64 / 2.0;
+    let (red, green, blue);
+
+    if iter <= half {
+        let t = iter / half;
+        red = (1.0 - t) * 255.0;
+        green = t * 255.0;
+        blue = 0.0;
+    } else {
+        let t = (iter - half) / half;
+        red = 0.0;
+        green = (1.0 - t) * 255.0;
+        blue = t * 255.0;
+    }
+
+    [red as u8, green as u8, blue as u8, 255]
 }
 
 pub fn map_pixel_value_rug(

@@ -84,17 +84,16 @@ impl SfmlEngineWorkerInternal {
                 );
                 let mut n = c;
                 let mut distance = 0.0;
-                for _i in 1..seq_iter {
+                let mut iter = 0;
+                while iter < seq_iter && distance <= converge_distance {
                     n.f_sq_add_f64(c);
                     distance = n.abs_sum_f64();
-                    if distance >= converge_distance {
-                        break;
-                    }
+                    iter += 1;
                 }
                 if distance <= converge_distance {
                     pixels.extend_from_slice(&[0, 0, 0, 255]);
                 } else {
-                    let color = Complex::distance_gradient_f64(distance);
+                    let color = fractal_complex::iter_gradient_f64(iter, seq_iter);
                     pixels.extend_from_slice(&color);
                 }
             }
@@ -131,17 +130,16 @@ impl SfmlEngineWorkerInternal {
                 );
                 let mut n = c.clone();
                 let mut distance = 0.0;
-                for _i in 1..seq_iter {
+                let mut iter = 0;
+                while iter < seq_iter && distance <= converge_distance {
                     n = fractal_complex::f_sq_add_rug(&n, &c);
                     distance = fractal_complex::abs_sum_rug(&n);
-                    if distance >= converge_distance {
-                        break;
-                    }
+                    iter += 1;
                 }
                 if distance <= converge_distance {
                     pixels.extend_from_slice(&[0, 0, 0, 255]);
                 } else {
-                    let color = Complex::distance_gradient_f64(distance);
+                    let color = fractal_complex::iter_gradient_f64(iter, seq_iter);
                     pixels.extend_from_slice(&color);
                 }
             }

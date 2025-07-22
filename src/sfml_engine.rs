@@ -68,6 +68,15 @@ impl FractalEngine for SfmlEngine {
             .expect("Cannot shutdown the internal engine")
     }
 
+    fn reset_window(&mut self) {
+        let mut ctx = self.ctx_rwl.write().unwrap();
+        ctx.window = rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, (2.66, 2.0));
+        let mut new_real = ctx.window.real().clone();
+        new_real.mul_from(ctx.res.y as f32 / ctx.res.x as f32);
+        ctx.window.mut_imag().assign(new_real);
+        drop(ctx);
+    }
+
     fn reset_view(&mut self) {
         let mut ctx = self.ctx_rwl.write().unwrap();
         ctx.center = rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, -0.5);
@@ -76,8 +85,6 @@ impl FractalEngine for SfmlEngine {
         new_real.mul_from(ctx.res.y as f32 / ctx.res.x as f32);
         ctx.window.mut_imag().assign(new_real);
         drop(ctx);
-
-        self.reload()
     }
 
     fn reload(&mut self) {
@@ -148,6 +155,8 @@ impl FractalEngine for SfmlEngine {
             }
         }
 
+        ui.add_space(7.0);
+
         if ui
             .radio_value(
                 &mut ctx.backend,
@@ -168,6 +177,8 @@ impl FractalEngine for SfmlEngine {
         {
             self.set_backend(FractalBackend::Rug);
         }
+
+        ui.add_space(7.0);
 
         ui.horizontal(|ui| {
             ui.label("Precision : ");
@@ -260,6 +271,8 @@ impl FractalEngine for SfmlEngine {
             }
         });
 
+        ui.add_space(7.0);
+
         ui.horizontal(|ui| {
             ui.label("Movements :");
             if ui.button("Left").clicked() {
@@ -286,6 +299,8 @@ impl FractalEngine for SfmlEngine {
             }
         });
 
+        ui.add_space(7.0);
+
         if ui
             .button(RichText::new("RELOAD").size(12.0).extra_letter_spacing(3.0))
             .clicked()
@@ -293,8 +308,16 @@ impl FractalEngine for SfmlEngine {
             self.reload()
         }
 
+        ui.add_space(7.0);
+
+        if ui.button("RESET WINDOW").clicked() {
+            self.reset_window();
+            self.reload();
+        }
+
         if ui.button("RESET VIEW").clicked() {
             self.reset_view();
+            self.reload();
         }
     }
 
