@@ -74,6 +74,7 @@ impl<'a> SfmlEngineInternal<'a> {
             .unwrap();
 
             win.set_framerate_limit(60);
+            win.set_vertical_sync_enabled(true);
 
             let mut workers = vec![];
 

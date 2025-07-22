@@ -125,7 +125,6 @@ impl SfmlEngineWorkerInternal {
                     res,
                     &center,
                     &window,
-                    // Complex::new((self.rrect.left + x) as f64, (self.rrect.top + y) as f64),
                     ((self.rrect.left + x) as i32, (self.rrect.top + y) as i32),
                 );
                 let mut n = c.clone();
