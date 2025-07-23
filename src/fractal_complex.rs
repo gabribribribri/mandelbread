@@ -24,19 +24,14 @@ impl<T> Complex<T> {
 }
 
 impl Complex<f64> {
-    pub fn map_pixel_value_f64(
-        res: Complex<f64>,
-        center: Complex<f64>,
-        window: Complex<f64>,
-        value: Complex<f64>,
-    ) -> Complex<f64> {
+    pub fn map_pixel_value_f64(res: Self, center: Self, window: Self, value: Self) -> Self {
         Self::new(
             center.re - (window.re / 2.0) + (value.re / res.re) * window.re,
             center.im - (window.im / 2.0) + (value.im / res.im) * window.im,
         )
     }
 
-    pub fn f_sq_add_f64(&mut self, c: Complex<f64>) {
+    pub fn f_sq_add_f64(&mut self, c: Self) {
         (self.re, self.im) = (
             self.re * self.re - self.im * self.im + c.re,
             2.0 * self.re * self.im + c.im,
@@ -48,7 +43,7 @@ impl Complex<f64> {
     }
 }
 
-pub fn iter_gradient_f64(iter: u32, seq_iter: u32) -> [u8; 4] {
+pub fn iter_gradient(iter: u32, seq_iter: u32) -> [u8; 4] {
     let iter = iter as f64;
     let middle = seq_iter as f64 * 0.35;
     let (red, green, blue);

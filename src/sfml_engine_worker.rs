@@ -41,7 +41,7 @@ impl SfmlEngineWorkerInternal {
         loop {
             match self.notif_rx.recv().unwrap() {
                 WorkerNotif::Reload => {
-                    let result = self.choose_reload_internal();
+                    let result = self.choose_compute_backend();
                     self.data_tx.send(result).unwrap();
                 }
                 WorkerNotif::Shutdown => break,
@@ -50,15 +50,15 @@ impl SfmlEngineWorkerInternal {
         }
     }
 
-    fn choose_reload_internal(&mut self) -> WorkerResult {
+    fn choose_compute_backend(&mut self) -> WorkerResult {
         let backend = self.ctx_rwl.read().unwrap().backend;
         match backend {
-            FractalBackend::F64 => self.reload_internal_f64(),
-            FractalBackend::Rug => self.reload_internal_rug(),
+            FractalBackend::F64 => self.compute_image_f64(),
+            FractalBackend::Rug => self.compute_image_rug(),
         }
     }
 
-    fn reload_internal_f64(&mut self) -> WorkerResult {
+    fn compute_image_f64(&mut self) -> WorkerResult {
         let start = Instant::now();
 
         let ctx = self.ctx_rwl.read().unwrap().clone();
@@ -93,7 +93,7 @@ impl SfmlEngineWorkerInternal {
                 if distance <= converge_distance {
                     pixels.extend_from_slice(&[0, 0, 0, 255]);
                 } else {
-                    let color = fractal_complex::iter_gradient_f64(iter, seq_iter);
+                    let color = fractal_complex::iter_gradient(iter, seq_iter);
                     pixels.extend_from_slice(&color);
                 }
             }
@@ -106,7 +106,7 @@ impl SfmlEngineWorkerInternal {
         }
     }
 
-    fn reload_internal_rug(&mut self) -> WorkerResult {
+    fn compute_image_rug(&mut self) -> WorkerResult {
         let start = Instant::now();
 
         let ctx = self.ctx_rwl.read().unwrap().clone();
@@ -138,7 +138,7 @@ impl SfmlEngineWorkerInternal {
                 if distance <= converge_distance {
                     pixels.extend_from_slice(&[0, 0, 0, 255]);
                 } else {
-                    let color = fractal_complex::iter_gradient_f64(iter, seq_iter);
+                    let color = fractal_complex::iter_gradient(iter, seq_iter);
                     pixels.extend_from_slice(&color);
                 }
             }

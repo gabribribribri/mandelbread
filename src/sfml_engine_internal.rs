@@ -101,7 +101,9 @@ impl<'a> SfmlEngineInternal<'a> {
             }
 
             let mut texture = Texture::new().unwrap();
-            texture.create(ctx.res.x, ctx.res.y).unwrap();
+            texture
+                .create(ctx.res.x / ctx.lodiv, ctx.res.y / ctx.lodiv)
+                .unwrap();
             drop(ctx);
 
             let internal_engine = SfmlEngineInternal {
@@ -112,11 +114,11 @@ impl<'a> SfmlEngineInternal<'a> {
                 workers,
             };
 
-            internal_engine.run_until_end();
+            internal_engine.run_until_stop();
         }
     }
 
-    pub fn run_until_end(mut self) {
+    pub fn run_until_stop(mut self) {
         while self.win.is_open() {
             self.handle_events_internal();
             self.handle_notifs_internal();
