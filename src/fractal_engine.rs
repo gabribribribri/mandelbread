@@ -33,12 +33,14 @@ pub struct FractalContext {
 pub enum FractalBackend {
     F64,
     Rug,
+    Shader,
 }
 
 pub enum FractalNotif {
     Commence,
     Shutdown,
     Reload,
+    ChangeBackend(FractalBackend),
 }
 
 impl Default for FractalContext {
@@ -53,7 +55,7 @@ impl Default for FractalContext {
             reload_durs: vec![Duration::ZERO],
             engine_enabled: true,
             worker_count: 1,
-            converge_distance: 100.0,
+            converge_distance: 2.0,
             has_resized: true,
         }
     }

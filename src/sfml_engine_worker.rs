@@ -55,6 +55,7 @@ impl SfmlEngineWorkerInternal {
         match backend {
             FractalBackend::F64 => self.compute_image_f64(),
             FractalBackend::Rug => self.compute_image_rug(),
+            FractalBackend::Shader => panic!("Bro I am not supposed to handle that"),
         }
     }
 

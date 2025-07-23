@@ -11,7 +11,8 @@ use rug::{Assign, ops::MulFrom};
 use sfml::{
     cpp::FBox,
     graphics::{
-        Color, FloatRect, Rect, RenderTarget, RenderWindow, Sprite, Texture, Transformable, View,
+        Color, FloatRect, Rect, RenderTarget, RenderWindow, Shader, Sprite, Texture, Transformable,
+        View,
     },
     system::Vector2f,
     window::{ContextSettings, Event, Style, mouse::Button},
@@ -19,7 +20,7 @@ use sfml::{
 
 use crate::{
     fractal_complex,
-    fractal_engine::{FractalContext, FractalNotif},
+    fractal_engine::{FractalBackend, FractalContext, FractalNotif},
     sfml_engine_worker::SfmlEngineWorkerInternal,
 };
 
@@ -29,6 +30,8 @@ pub struct SfmlEngineInternal<'a> {
     workers: Vec<SfmlEngineWorkerExternal>,
     win: FBox<RenderWindow>,
     texture: FBox<Texture>,
+    shader: FBox<Shader<'a>>,
+    backend: FractalBackend,
 }
 
 struct SfmlEngineWorkerExternal {
@@ -76,6 +79,11 @@ impl<'a> SfmlEngineInternal<'a> {
             win.set_framerate_limit(60);
             win.set_vertical_sync_enabled(true);
 
+            let mut texture = Texture::new().unwrap();
+            texture
+                .create(ctx.res.x / ctx.lodiv, ctx.res.y / ctx.lodiv)
+                .unwrap();
+
             let mut workers = vec![];
 
             for id in 0..ctx.worker_count {
@@ -100,10 +108,11 @@ impl<'a> SfmlEngineInternal<'a> {
                 });
             }
 
-            let mut texture = Texture::new().unwrap();
-            texture
-                .create(ctx.res.x / ctx.lodiv, ctx.res.y / ctx.lodiv)
-                .unwrap();
+            let shader = Shader::from_file_vert_frag("src/vertex.glsl", "src/fragment.glsl")
+                .expect("Failed to load shaders");
+
+            let backend = ctx.backend;
+
             drop(ctx);
 
             let internal_engine = SfmlEngineInternal {
@@ -112,6 +121,8 @@ impl<'a> SfmlEngineInternal<'a> {
                 win,
                 texture,
                 workers,
+                shader,
+                backend,
             };
 
             internal_engine.run_until_stop();
@@ -159,6 +170,7 @@ impl<'a> SfmlEngineInternal<'a> {
                 FractalNotif::Commence => panic!("bah bro je roule déjà..."),
                 FractalNotif::Shutdown => self.shutdown_internal(),
                 FractalNotif::Reload => self.reload_internal(),
+                FractalNotif::ChangeBackend(backend) => self.backend = backend,
             },
             Err(TryRecvError::Empty) => (),
             Err(TryRecvError::Disconnected) => panic!("The connexion shouldn't be disconnected"),
@@ -166,7 +178,13 @@ impl<'a> SfmlEngineInternal<'a> {
     }
 
     fn render_internal(&mut self) {
-        // TODO FIX THIS LATER
+        match self.backend {
+            FractalBackend::F64 | FractalBackend::Rug => self.render_internal_cpu(),
+            FractalBackend::Shader => self.render_internal_gpu(),
+        }
+    }
+
+    fn render_internal_cpu(&mut self) {
         let mut sprite = Sprite::with_texture(&self.texture);
         sprite.set_scale((
             self.win.size().x as f32 / sprite.texture_rect().width as f32,
@@ -175,6 +193,22 @@ impl<'a> SfmlEngineInternal<'a> {
 
         self.win.clear(Color::CYAN);
         self.win.draw(&sprite);
+        self.win.display();
+    }
+
+    fn render_internal_gpu(&mut self) {
+        let mut sprite = Sprite::with_texture(&self.texture);
+        sprite.set_scale((
+            self.win.size().x as f32 / sprite.texture_rect().width as f32,
+            self.win.size().y as f32 / sprite.texture_rect().height as f32,
+        ));
+
+        self.win.clear(Color::CYAN);
+        let states = sfml::graphics::RenderStates {
+            shader: Some(&self.shader),
+            ..Default::default()
+        };
+        self.win.draw_sprite(&sprite, &states);
         self.win.display();
     }
 
@@ -291,33 +325,43 @@ impl<'a> SfmlEngineInternal<'a> {
         }
     }
 
-    fn reload_internal(&mut self) {
-        let (ctx_worker_count, ctx_lodiv, ctx_has_resized);
-        {
-            let ctx = self.ctx_rwl.read().unwrap();
-            ctx_worker_count = ctx.worker_count;
-            ctx_lodiv = ctx.lodiv;
-            ctx_has_resized = ctx.has_resized;
-        }
+    fn adjust_workers_if_needed(&mut self) {
+        let ctx_worker_count = self.ctx_rwl.read().unwrap().worker_count;
 
         // Create or Remove workers if necessary
         if self.workers.len() != ctx_worker_count {
             self.manage_workers(ctx_worker_count);
             self.send_render_rect_workers();
         }
+    }
 
+    fn adjust_texture_if_needed(&mut self) {
         // Resize self.texture and worker's RenderRect if necessary
-        if ctx_has_resized {
-            self.ctx_rwl.write().unwrap().has_resized = false;
+        if self.ctx_rwl.read().unwrap().has_resized {
+            let mut ctx = self.ctx_rwl.write().unwrap();
+            ctx.has_resized = false;
 
             // Changing Texture Size
             self.texture
-                .create(self.win.size().x / ctx_lodiv, self.win.size().y / ctx_lodiv)
+                .create(self.win.size().x / ctx.lodiv, self.win.size().y / ctx.lodiv)
                 .unwrap();
 
             // Changing Workers RenderRect
+            drop(ctx);
             self.send_render_rect_workers();
         }
+    }
+
+    fn reload_internal(&mut self) {
+        match self.backend {
+            FractalBackend::F64 | FractalBackend::Rug => self.reload_internal_cpu(),
+            FractalBackend::Shader => self.adjust_texture_if_needed(),
+        }
+    }
+
+    fn reload_internal_cpu(&mut self) {
+        self.adjust_workers_if_needed();
+        self.adjust_texture_if_needed();
 
         // Send the start message to the workers !
         for worker in &self.workers {

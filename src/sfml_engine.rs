@@ -123,6 +123,9 @@ impl FractalEngine for SfmlEngine {
 
     fn set_backend(&mut self, backend: FractalBackend) {
         self.ctx_rwl.write().unwrap().backend = backend;
+        self.notif_tx
+            .send(FractalNotif::ChangeBackend(backend))
+            .unwrap();
         self.reload()
     }
 
@@ -178,6 +181,13 @@ impl FractalEngine for SfmlEngine {
             self.set_backend(FractalBackend::Rug);
         }
 
+        if ui
+            .radio_value(&mut ctx.backend, FractalBackend::Shader, "GPU Shaders")
+            .clicked()
+        {
+            self.set_backend(FractalBackend::Shader);
+        }
+
         ui.add_space(7.0);
 
         ui.horizontal(|ui| {
@@ -204,7 +214,11 @@ impl FractalEngine for SfmlEngine {
 
         ui.horizontal(|ui| {
             ui.label("Converge Distance : ");
-            let drag_value = ui.add(egui::DragValue::new(&mut ctx.converge_distance));
+            let drag_value = ui.add(
+                egui::DragValue::new(&mut ctx.converge_distance)
+                    .range(0.0..=f64::MAX)
+                    .speed(0.1),
+            );
             if drag_value.changed() {
                 self.set_converge_distance(ctx.converge_distance);
             }
