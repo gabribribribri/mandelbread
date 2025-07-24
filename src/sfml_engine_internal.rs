@@ -85,7 +85,6 @@ impl<'a> SfmlEngineInternal<'a> {
                 .unwrap();
 
             let mut workers = vec![];
-
             for id in 0..ctx.worker_count {
                 let (worker_tx, internal_rx) = mpsc::channel();
                 let (internal_tx, worker_rx) = mpsc::channel();
@@ -178,38 +177,28 @@ impl<'a> SfmlEngineInternal<'a> {
     }
 
     fn render_internal(&mut self) {
+        let mut sprite = Sprite::with_texture(&self.texture);
+        sprite.set_scale((
+            self.win.size().x as f32 / sprite.texture_rect().width as f32,
+            self.win.size().y as f32 / sprite.texture_rect().height as f32,
+        ));
+
         match self.backend {
-            FractalBackend::F64 | FractalBackend::Rug => self.render_internal_cpu(),
-            FractalBackend::Shader => self.render_internal_gpu(),
+            FractalBackend::F64 | FractalBackend::Rug => {
+                self.win.clear(Color::CYAN);
+                self.win.draw(&sprite);
+                self.win.display();
+            }
+            FractalBackend::Shader => {
+                self.win.clear(Color::CYAN);
+                let states = sfml::graphics::RenderStates {
+                    shader: Some(&self.shader),
+                    ..Default::default()
+                };
+                self.win.draw_sprite(&sprite, &states);
+                self.win.display();
+            }
         }
-    }
-
-    fn render_internal_cpu(&mut self) {
-        let mut sprite = Sprite::with_texture(&self.texture);
-        sprite.set_scale((
-            self.win.size().x as f32 / sprite.texture_rect().width as f32,
-            self.win.size().y as f32 / sprite.texture_rect().height as f32,
-        ));
-
-        self.win.clear(Color::CYAN);
-        self.win.draw(&sprite);
-        self.win.display();
-    }
-
-    fn render_internal_gpu(&mut self) {
-        let mut sprite = Sprite::with_texture(&self.texture);
-        sprite.set_scale((
-            self.win.size().x as f32 / sprite.texture_rect().width as f32,
-            self.win.size().y as f32 / sprite.texture_rect().height as f32,
-        ));
-
-        self.win.clear(Color::CYAN);
-        let states = sfml::graphics::RenderStates {
-            shader: Some(&self.shader),
-            ..Default::default()
-        };
-        self.win.draw_sprite(&sprite, &states);
-        self.win.display();
     }
 
     fn shutdown_internal(&mut self) {
