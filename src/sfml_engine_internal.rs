@@ -343,15 +343,17 @@ impl<'a> SfmlEngineInternal<'a> {
 
     fn reload_internal(&mut self) {
         match self.backend {
-            FractalBackend::F64 | FractalBackend::Rug => self.reload_internal_cpu(),
-            FractalBackend::Shader => self.adjust_texture_if_needed(),
+            FractalBackend::F64 | FractalBackend::Rug => self.prepare_and_reload_internal_cpu(),
+            FractalBackend::Shader => self.prepare_internal_gpu(),
         }
     }
 
-    fn reload_internal_cpu(&mut self) {
+    fn prepare_and_reload_internal_cpu(&mut self) {
+        // Prepare
         self.adjust_workers_if_needed();
         self.adjust_texture_if_needed();
 
+        // Reload
         // Send the start message to the workers !
         for worker in &self.workers {
             worker.tx.send(WorkerNotif::Reload).unwrap();
@@ -375,5 +377,10 @@ impl<'a> SfmlEngineInternal<'a> {
                 rrect.top,
             );
         }
+    }
+
+    fn prepare_internal_gpu(&mut self) {
+        // Only Preparing
+        self.adjust_texture_if_needed();
     }
 }
