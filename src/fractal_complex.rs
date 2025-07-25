@@ -24,10 +24,10 @@ impl<T> Complex<T> {
 }
 
 impl Complex<f64> {
-    pub fn map_pixel_value_f64(res: Self, center: Self, window: Self, value: Self) -> Self {
+    pub fn map_pixel_value_f64(res: Self, center: Self, window: Self, coord: Self) -> Self {
         Self::new(
-            center.re - (window.re / 2.0) + (value.re / res.re) * window.re,
-            center.im - (window.im / 2.0) + (value.im / res.im) * window.im,
+            center.re - (window.re / 2.0) + (coord.re / res.re) * window.re,
+            center.im - (window.im / 2.0) + ((res.im - coord.im) / res.im) * window.im,
         )
     }
 
@@ -45,16 +45,16 @@ impl Complex<f64> {
 
 pub fn iter_gradient(iter: u32, seq_iter: u32) -> [u8; 4] {
     let iter = iter as f64;
-    let middle = seq_iter as f64 * 0.35;
+    let mid = seq_iter as f64 * 0.35;
     let (red, green, blue);
 
-    if iter <= middle {
-        let t = iter / middle;
+    if iter <= mid {
+        let t = iter / mid;
         red = (1.0 - t) * 255.0;
         green = t * 255.0;
         blue = 0.0;
     } else {
-        let t = (iter - middle) / middle;
+        let t = (iter - mid) / mid;
         red = 0.0;
         green = (1.0 - t) * 255.0;
         blue = t * 255.0;
@@ -67,15 +67,15 @@ pub fn map_pixel_value_rug(
     res: Vector2<u32>,
     center: &rug::Complex,
     window: &rug::Complex,
-    value: (i32, i32),
+    coord: (i32, i32),
 ) -> rug::Complex {
     let mut result = window.clone();
     result
         .mut_real()
-        .mul_assign_round(-(res.x as i32) + 2 * value.0, Round::Nearest);
+        .mul_assign_round(-(res.x as i32) + 2 * coord.0, Round::Nearest);
     result
         .mut_imag()
-        .mul_assign_round(-(res.y as i32) + 2 * value.1, Round::Nearest);
+        .mul_assign_round(-(res.y as i32) + 2 * coord.1, Round::Nearest);
     result
         .mut_real()
         .div_assign_round(2 * res.x, Round::Nearest);

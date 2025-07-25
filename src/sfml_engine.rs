@@ -99,7 +99,7 @@ impl FractalEngine for SfmlEngine {
         let mut real_offset = ctx.window.real().clone();
         real_offset.mul_from(0.5 * trsln.re);
         let mut imag_offset = ctx.window.imag().clone();
-        imag_offset.mul_from(-0.5 * trsln.im); // why minus ??
+        imag_offset.mul_from(0.5 * trsln.im); // why minus ??
         ctx.center.add_from(real_offset);
         ctx.center.mut_imag().add_from(imag_offset);
 

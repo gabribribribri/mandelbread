@@ -12,7 +12,7 @@ use sfml::{
     cpp::FBox,
     graphics::{
         Color, FloatRect, Rect, RenderTarget, RenderWindow, Shader, Sprite, Texture, Transformable,
-        View,
+        View, glsl::IVec4,
     },
     system::Vector2f,
     window::{ContextSettings, Event, Style, mouse::Button},
@@ -226,8 +226,12 @@ impl<'a> SfmlEngineInternal<'a> {
     fn move_window_from_mouse_pos(&mut self, x: i32, y: i32) {
         let mut ctx = self.ctx_rwl.write().unwrap();
 
-        ctx.center =
-            fractal_complex::map_pixel_value_rug(self.win.size(), &ctx.center, &ctx.window, (x, y));
+        ctx.center = fractal_complex::map_pixel_value_rug(
+            self.win.size(),
+            &ctx.center,
+            &ctx.window,
+            (x, self.win.size().y as i32 - y),
+        );
 
         drop(ctx);
         self.reload_internal();
@@ -382,5 +386,44 @@ impl<'a> SfmlEngineInternal<'a> {
     fn prepare_internal_gpu(&mut self) {
         // Only Preparing
         self.adjust_texture_if_needed();
+
+        self.shader
+            .set_uniform_vec2(
+                "u_Resolution",
+                Vector2f::new(self.texture.size().x as f32, self.texture.size().y as f32),
+            )
+            .unwrap();
+
+        let ctx = self.ctx_rwl.read().unwrap();
+
+        self.shader
+            .set_uniform_ivec4(
+                "u_Center",
+                two_f64_to_ivec4(ctx.center.real().to_f64(), ctx.center.imag().to_f64()),
+            )
+            .unwrap();
+
+        self.shader
+            .set_uniform_ivec4(
+                "u_Window",
+                two_f64_to_ivec4(ctx.window.real().to_f64(), ctx.window.imag().to_f64()),
+            )
+            .unwrap();
+
+        self.shader
+            .set_uniform_int("u_SeqIter", ctx.seq_iter as i32)
+            .unwrap();
+
+        self.shader
+            .set_uniform_float("u_ConvergeDistance", ctx.converge_distance as f32)
+            .unwrap();
     }
+}
+
+fn two_f64_to_ivec4(a: f64, b: f64) -> IVec4 {
+    let x = (a.to_bits() >> 16) as i32;
+    let y = (a.to_bits() & 0x0000_0000_FFFF_FFFF) as i32;
+    let z = (b.to_bits() >> 16) as i32;
+    let w = (b.to_bits() & 0x0000_0000_FFFF_FFFF) as i32;
+    IVec4 { x, y, z, w }
 }

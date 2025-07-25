@@ -1,20 +1,5 @@
-#version 130 // SFML often defaults to GLSL 1.30, compatible with most setups
-
-// SFML's automatically provided vertex attributes
-in vec2 position;
-in vec2 texCoord; // We will use this for the gradient
-
-// SFML's automatically provided transformation uniform
-uniform mat4 transform;
-
-// Output to the fragment shader
-out vec2 v_texCoord;
-
+// I don't give a single flying shit about what this is, It just works that's all I want.
 void main()
 {
-    // Apply SFML's transformation matrix to get clip-space position
-    gl_Position = transform * vec4(position, 0.0, 1.0);
-
-    // Pass the texture coordinates to the fragment shader
-    v_texCoord = texCoord;
+    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
 }
