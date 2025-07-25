@@ -44,17 +44,17 @@ impl Complex<f64> {
 }
 
 pub fn iter_gradient(iter: u32, seq_iter: u32) -> [u8; 4] {
-    let iter = iter as f64;
-    let mid = seq_iter as f64 * 0.35;
+    let iter_norm = iter as f64 / seq_iter as f64;
+    let mid = 0.35;
     let (red, green, blue);
 
-    if iter <= mid {
-        let t = iter / mid;
+    if iter_norm <= mid {
+        let t = iter_norm / mid;
         red = (1. - t) * 255.;
         green = t * 255.;
         blue = 0.;
     } else {
-        let t = (iter - mid) / (1. - mid);
+        let t = (iter_norm - mid) / (1. - mid);
         red = 0.;
         green = (1. - t) * 255.;
         blue = t * 255.;
