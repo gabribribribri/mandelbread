@@ -1,13 +1,20 @@
-attribute vec3 aPosition;
-attribute vec2 aTexCoord;
+#version 130 // SFML often defaults to GLSL 1.30, compatible with most setups
 
-varying vec2 pos;
+// SFML's automatically provided vertex attributes
+in vec2 position;
+in vec2 texCoord; // We will use this for the gradient
 
-void main() {
-    pos = aTexCoord;
+// SFML's automatically provided transformation uniform
+uniform mat4 transform;
 
-    vec4 position = vec4(aPosition, 1.0);
-    position.xy = position.xy * 2. - 1.;
+// Output to the fragment shader
+out vec2 v_texCoord;
 
-    gl_Position = position;
+void main()
+{
+    // Apply SFML's transformation matrix to get clip-space position
+    gl_Position = transform * vec4(position, 0.0, 1.0);
+
+    // Pass the texture coordinates to the fragment shader
+    v_texCoord = texCoord;
 }

@@ -195,7 +195,7 @@ impl<'a> SfmlEngineInternal<'a> {
                     shader: Some(&self.shader),
                     ..Default::default()
                 };
-                self.win.draw_sprite(&sprite, &states);
+                self.win.draw_with_renderstates(&sprite, &states);
                 self.win.display();
             }
         }

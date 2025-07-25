@@ -1,11 +1,18 @@
 #version 330
 
-precision highp float;
+// Input from the vertex shader (interpolated)
+in vec2 v_texCoord;
 
-varying vec2 pos;
+// Output color for the fragment
+out vec4 FragColor;
 
-void main() {
-    vec4 c1 = vec4(0.5, 0.1, 0.9, 1.);
-    vec4 c2 = vec4(0.1, 0.8, 0.7, 1.);
-    gl_FragColor = mix(c1, c2, pos.x);
+void main()
+{
+    // Calculate the red and green components based on the x-coordinate
+    float red = 1.0 - v_texCoord.x; // Red goes from 1.0 to 0.0
+    float green = v_texCoord.x;     // Green goes from 0.0 to 1.0
+    float blue = 0.0;               // No blue component
+
+    // Set the final color
+    FragColor = vec4(red, green, blue, 1.0); // Full opacity
 }
