@@ -4,7 +4,7 @@ use std::{
         mpsc::{self, Receiver, Sender, TryRecvError},
     },
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use rug::{Assign, ops::MulFrom};
@@ -12,7 +12,7 @@ use sfml::{
     cpp::FBox,
     graphics::{
         Color, FloatRect, Rect, RenderTarget, RenderWindow, Shader, Sprite, Texture, Transformable,
-        View, glsl::IVec4,
+        View, glsl::Vec4,
     },
     system::Vector2f,
     window::{ContextSettings, Event, Style, mouse::Button},
@@ -190,6 +190,7 @@ impl<'a> SfmlEngineInternal<'a> {
                 self.win.display();
             }
             FractalBackend::Shader => {
+                let start = Instant::now();
                 self.win.clear(Color::CYAN);
                 let states = sfml::graphics::RenderStates {
                     shader: Some(&self.shader),
@@ -197,6 +198,7 @@ impl<'a> SfmlEngineInternal<'a> {
                 };
                 self.win.draw_with_renderstates(&sprite, &states);
                 self.win.display();
+                self.ctx_rwl.write().unwrap().reload_durs[0] = start.elapsed();
             }
         }
     }
@@ -226,12 +228,8 @@ impl<'a> SfmlEngineInternal<'a> {
     fn move_window_from_mouse_pos(&mut self, x: i32, y: i32) {
         let mut ctx = self.ctx_rwl.write().unwrap();
 
-        ctx.center = fractal_complex::map_pixel_value_rug(
-            self.win.size(),
-            &ctx.center,
-            &ctx.window,
-            (x, self.win.size().y as i32 - y),
-        );
+        ctx.center =
+            fractal_complex::map_pixel_value_rug(self.win.size(), &ctx.center, &ctx.window, (x, y));
 
         drop(ctx);
         self.reload_internal();
@@ -387,6 +385,13 @@ impl<'a> SfmlEngineInternal<'a> {
         // Only Preparing
         self.adjust_texture_if_needed();
 
+        // TODO Fix this ugliness
+        for dur in &mut self.ctx_rwl.write().unwrap().reload_durs {
+            *dur = Duration::ZERO;
+        }
+
+        let ctx = self.ctx_rwl.read().unwrap();
+
         self.shader
             .set_uniform_vec2(
                 "u_Resolution",
@@ -394,19 +399,17 @@ impl<'a> SfmlEngineInternal<'a> {
             )
             .unwrap();
 
-        let ctx = self.ctx_rwl.read().unwrap();
-
         self.shader
-            .set_uniform_ivec4(
+            .set_uniform_vec4(
                 "u_Center",
-                two_f64_to_ivec4(ctx.center.real().to_f64(), ctx.center.imag().to_f64()),
+                two_f64_to_vec4(ctx.center.real().to_f64(), ctx.center.imag().to_f64()),
             )
             .unwrap();
 
         self.shader
-            .set_uniform_ivec4(
+            .set_uniform_vec4(
                 "u_Window",
-                two_f64_to_ivec4(ctx.window.real().to_f64(), ctx.window.imag().to_f64()),
+                two_f64_to_vec4(ctx.window.real().to_f64(), ctx.window.imag().to_f64()),
             )
             .unwrap();
 
@@ -420,10 +423,10 @@ impl<'a> SfmlEngineInternal<'a> {
     }
 }
 
-fn two_f64_to_ivec4(a: f64, b: f64) -> IVec4 {
-    let x = (a.to_bits() >> 16) as i32;
-    let y = (a.to_bits() & 0x0000_0000_FFFF_FFFF) as i32;
-    let z = (b.to_bits() >> 16) as i32;
-    let w = (b.to_bits() & 0x0000_0000_FFFF_FFFF) as i32;
-    IVec4 { x, y, z, w }
+fn two_f64_to_vec4(a: f64, b: f64) -> Vec4 {
+    let x = f32::from_bits((a.to_bits() >> 32) as u32);
+    let y = f32::from_bits((a.to_bits() & 0x0000_0000_FFFF_FFFF) as u32);
+    let z = f32::from_bits((b.to_bits() >> 32) as u32);
+    let w = f32::from_bits((b.to_bits() & 0x0000_0000_FFFF_FFFF) as u32);
+    Vec4 { x, y, z, w }
 }

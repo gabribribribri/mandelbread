@@ -50,14 +50,14 @@ pub fn iter_gradient(iter: u32, seq_iter: u32) -> [u8; 4] {
 
     if iter <= mid {
         let t = iter / mid;
-        red = (1.0 - t) * 255.0;
-        green = t * 255.0;
-        blue = 0.0;
+        red = (1. - t) * 255.;
+        green = t * 255.;
+        blue = 0.;
     } else {
-        let t = (iter - mid) / mid;
-        red = 0.0;
-        green = (1.0 - t) * 255.0;
-        blue = t * 255.0;
+        let t = (iter - mid) / (1. - mid);
+        red = 0.;
+        green = (1. - t) * 255.;
+        blue = t * 255.;
     }
 
     [red as u8, green as u8, blue as u8, 255]
@@ -73,9 +73,10 @@ pub fn map_pixel_value_rug(
     result
         .mut_real()
         .mul_assign_round(-(res.x as i32) + 2 * coord.0, Round::Nearest);
-    result
-        .mut_imag()
-        .mul_assign_round(-(res.y as i32) + 2 * coord.1, Round::Nearest);
+    result.mut_imag().mul_assign_round(
+        -(res.y as i32) + 2 * (res.y as i32 - coord.1),
+        Round::Nearest,
+    );
     result
         .mut_real()
         .div_assign_round(2 * res.x, Round::Nearest);
