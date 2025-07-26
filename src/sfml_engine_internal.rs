@@ -356,6 +356,7 @@ impl<'a> SfmlEngineInternal<'a> {
                     &ContextSettings::default(),
                 )
                 .unwrap();
+            drop(ctx);
         }
     }
 
