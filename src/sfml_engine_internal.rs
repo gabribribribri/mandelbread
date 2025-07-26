@@ -198,7 +198,7 @@ impl<'a> SfmlEngineInternal<'a> {
             self.win.size().y as f32 / sprite.texture_rect().height as f32,
         ));
 
-        self.win.clear(Color::CYAN);
+        self.win.clear(Color::BLACK);
         self.win.draw(&sprite);
         self.win.display();
     }
@@ -326,7 +326,7 @@ impl<'a> SfmlEngineInternal<'a> {
         }
     }
 
-    fn adjust_texture_if_needed(&mut self) {
+    fn adjust_textures_if_needed(&mut self) {
         // Resize self.texture and worker's RenderRect if necessary
         if self.ctx_rwl.read().unwrap().has_resized {
             let mut ctx = self.ctx_rwl.write().unwrap();
@@ -337,17 +337,6 @@ impl<'a> SfmlEngineInternal<'a> {
                 .create(ctx.res.x / ctx.lodiv, ctx.res.y / ctx.lodiv)
                 .unwrap();
 
-            // Changing Workers RenderRect
-            drop(ctx);
-            self.send_render_rect_workers();
-        }
-    }
-
-    fn adjust_render_texture_if_needed(&mut self) {
-        if self.ctx_rwl.read().unwrap().has_resized {
-            let mut ctx = self.ctx_rwl.write().unwrap();
-            ctx.has_resized = false;
-
             // Changing RenderTexture Size
             self.render_texture
                 .recreate(
@@ -356,7 +345,10 @@ impl<'a> SfmlEngineInternal<'a> {
                     &ContextSettings::default(),
                 )
                 .unwrap();
+
+            // Changing Workers RenderRect
             drop(ctx);
+            self.send_render_rect_workers();
         }
     }
 
@@ -411,7 +403,7 @@ impl<'a> SfmlEngineInternal<'a> {
     fn prepare_and_reload_internal_cpu(&mut self) {
         // Prepare
         self.adjust_workers_if_needed();
-        self.adjust_texture_if_needed();
+        self.adjust_textures_if_needed();
 
         // Reload
         // Send the start message to the workers !
@@ -441,7 +433,7 @@ impl<'a> SfmlEngineInternal<'a> {
 
     fn prepare_and_reload_internal_gpu(&mut self) {
         // Prepare
-        self.adjust_render_texture_if_needed();
+        self.adjust_textures_if_needed();
         self.adjust_uniforms();
 
         // Render
