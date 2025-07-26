@@ -11,8 +11,8 @@ use rug::{Assign, ops::MulFrom};
 use sfml::{
     cpp::FBox,
     graphics::{
-        Color, FloatRect, Rect, RenderTarget, RenderWindow, Shader, Sprite, Texture, Transformable,
-        View, glsl::Vec4,
+        Color, FloatRect, Rect, RectangleShape, RenderTarget, RenderTexture, RenderWindow, Shader,
+        Sprite, Texture, Transformable, View, glsl::Vec4,
     },
     system::Vector2f,
     window::{ContextSettings, Event, Style, mouse::Button},
@@ -30,6 +30,7 @@ pub struct SfmlEngineInternal<'a> {
     workers: Vec<SfmlEngineWorkerExternal>,
     win: FBox<RenderWindow>,
     texture: FBox<Texture>,
+    render_texture: FBox<RenderTexture>,
     shader: FBox<Shader<'a>>,
     backend: FractalBackend,
 }
@@ -84,6 +85,9 @@ impl<'a> SfmlEngineInternal<'a> {
                 .create(ctx.res.x / ctx.lodiv, ctx.res.y / ctx.lodiv)
                 .unwrap();
 
+            let render_texture =
+                RenderTexture::new(ctx.res.x / ctx.lodiv, ctx.res.y / ctx.lodiv).unwrap();
+
             let mut workers = vec![];
             for id in 0..ctx.worker_count {
                 let (worker_tx, internal_rx) = mpsc::channel();
@@ -119,6 +123,7 @@ impl<'a> SfmlEngineInternal<'a> {
                 ctx_rwl: Arc::clone(&ctx_rwl),
                 win,
                 texture,
+                render_texture,
                 workers,
                 shader,
                 backend,
@@ -177,30 +182,25 @@ impl<'a> SfmlEngineInternal<'a> {
     }
 
     fn render_internal(&mut self) {
-        let mut sprite = Sprite::with_texture(&self.texture);
+        let mut sprite;
+
+        match self.backend {
+            FractalBackend::F64 | FractalBackend::Rug => {
+                sprite = Sprite::with_texture(&self.texture);
+            }
+            FractalBackend::Shader => {
+                sprite = Sprite::with_texture(self.render_texture.texture());
+            }
+        }
+
         sprite.set_scale((
             self.win.size().x as f32 / sprite.texture_rect().width as f32,
             self.win.size().y as f32 / sprite.texture_rect().height as f32,
         ));
 
-        match self.backend {
-            FractalBackend::F64 | FractalBackend::Rug => {
-                self.win.clear(Color::CYAN);
-                self.win.draw(&sprite);
-                self.win.display();
-            }
-            FractalBackend::Shader => {
-                let start = Instant::now();
-                self.win.clear(Color::CYAN);
-                let states = sfml::graphics::RenderStates {
-                    shader: Some(&self.shader),
-                    ..Default::default()
-                };
-                self.win.draw_with_renderstates(&sprite, &states);
-                self.win.display();
-                self.ctx_rwl.write().unwrap().reload_durs[0] = start.elapsed();
-            }
-        }
+        self.win.clear(Color::CYAN);
+        self.win.draw(&sprite);
+        self.win.display();
     }
 
     fn shutdown_internal(&mut self) {
@@ -334,7 +334,7 @@ impl<'a> SfmlEngineInternal<'a> {
 
             // Changing Texture Size
             self.texture
-                .create(self.win.size().x / ctx.lodiv, self.win.size().y / ctx.lodiv)
+                .create(ctx.res.x / ctx.lodiv, ctx.res.y / ctx.lodiv)
                 .unwrap();
 
             // Changing Workers RenderRect
@@ -343,10 +343,67 @@ impl<'a> SfmlEngineInternal<'a> {
         }
     }
 
+    fn adjust_render_texture_if_needed(&mut self) {
+        if self.ctx_rwl.read().unwrap().has_resized {
+            let mut ctx = self.ctx_rwl.write().unwrap();
+            ctx.has_resized = false;
+
+            // Changing RenderTexture Size
+            self.render_texture
+                .recreate(
+                    ctx.res.x / ctx.lodiv,
+                    ctx.res.y / ctx.lodiv,
+                    &ContextSettings::default(),
+                )
+                .unwrap();
+        }
+    }
+
+    fn adjust_uniforms(&mut self) {
+        // TODO Fix this ugliness
+        for dur in &mut self.ctx_rwl.write().unwrap().reload_durs {
+            *dur = Duration::ZERO;
+        }
+
+        let ctx = self.ctx_rwl.read().unwrap();
+
+        self.shader
+            .set_uniform_vec2(
+                "u_Resolution",
+                Vector2f::new(
+                    self.texture.size().x as f32 / ctx.lodiv as f32,
+                    self.texture.size().y as f32 / ctx.lodiv as f32,
+                ),
+            )
+            .unwrap();
+
+        self.shader
+            .set_uniform_vec4(
+                "u_Center",
+                two_f64_to_vec4(ctx.center.real().to_f64(), ctx.center.imag().to_f64()),
+            )
+            .unwrap();
+
+        self.shader
+            .set_uniform_vec4(
+                "u_Window",
+                two_f64_to_vec4(ctx.window.real().to_f64(), ctx.window.imag().to_f64()),
+            )
+            .unwrap();
+
+        self.shader
+            .set_uniform_int("u_SeqIter", ctx.seq_iter as i32)
+            .unwrap();
+
+        self.shader
+            .set_uniform_float("u_ConvergeDistance", ctx.converge_distance as f32)
+            .unwrap();
+    }
+
     fn reload_internal(&mut self) {
         match self.backend {
             FractalBackend::F64 | FractalBackend::Rug => self.prepare_and_reload_internal_cpu(),
-            FractalBackend::Shader => self.prepare_internal_gpu(),
+            FractalBackend::Shader => self.prepare_and_reload_internal_gpu(),
         }
     }
 
@@ -381,45 +438,25 @@ impl<'a> SfmlEngineInternal<'a> {
         }
     }
 
-    fn prepare_internal_gpu(&mut self) {
-        // Only Preparing
-        self.adjust_texture_if_needed();
+    fn prepare_and_reload_internal_gpu(&mut self) {
+        // Prepare
+        self.adjust_render_texture_if_needed();
+        self.adjust_uniforms();
 
-        // TODO Fix this ugliness
-        for dur in &mut self.ctx_rwl.write().unwrap().reload_durs {
-            *dur = Duration::ZERO;
-        }
-
-        let ctx = self.ctx_rwl.read().unwrap();
-
-        self.shader
-            .set_uniform_vec2(
-                "u_Resolution",
-                Vector2f::new(self.texture.size().x as f32, self.texture.size().y as f32),
-            )
-            .unwrap();
-
-        self.shader
-            .set_uniform_vec4(
-                "u_Center",
-                two_f64_to_vec4(ctx.center.real().to_f64(), ctx.center.imag().to_f64()),
-            )
-            .unwrap();
-
-        self.shader
-            .set_uniform_vec4(
-                "u_Window",
-                two_f64_to_vec4(ctx.window.real().to_f64(), ctx.window.imag().to_f64()),
-            )
-            .unwrap();
-
-        self.shader
-            .set_uniform_int("u_SeqIter", ctx.seq_iter as i32)
-            .unwrap();
-
-        self.shader
-            .set_uniform_float("u_ConvergeDistance", ctx.converge_distance as f32)
-            .unwrap();
+        // Render
+        let start = Instant::now();
+        let states = sfml::graphics::RenderStates {
+            shader: Some(&self.shader),
+            ..Default::default()
+        };
+        let rect_to_render = RectangleShape::with_size(Vector2f::new(
+            self.render_texture.size().x as f32,
+            self.render_texture.size().y as f32,
+        ));
+        self.render_texture
+            .draw_with_renderstates(&rect_to_render, &states);
+        self.render_texture.display();
+        self.ctx_rwl.write().unwrap().reload_durs[0] = start.elapsed();
     }
 }
 
