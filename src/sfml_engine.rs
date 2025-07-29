@@ -1,4 +1,5 @@
 use std::{
+    f64,
     sync::{
         Arc, RwLock,
         mpsc::{self, Sender},
@@ -15,7 +16,8 @@ use rug::{
 use crate::{
     fractal_complex::Complex,
     fractal_engine::{
-        FRCTL_CTX_CMPLX_PREC, FractalBackend, FractalContext, FractalEngine, FractalNotif, lodiv,
+        self, FRCTL_CTX_CMPLX_PREC, FractalBackend, FractalContext, FractalEngine, FractalNotif,
+        lodiv, seq_iters_formula,
     },
     sfml_engine_internal::SfmlEngineInternal,
 };
@@ -74,17 +76,15 @@ impl FractalEngine for SfmlEngine {
         let mut new_real = ctx.window.real().clone();
         new_real.mul_from(ctx.res.y as f32 / ctx.res.x as f32);
         ctx.window.mut_imag().assign(new_real);
+        if ctx.auto_seq_iter {
+            ctx.seq_iter = seq_iters_formula(&ctx.window, ctx.auto_seq_iter_fact);
+        }
         drop(ctx);
     }
 
     fn reset_view(&mut self) {
-        let mut ctx = self.ctx_rwl.write().unwrap();
-        ctx.center = rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, -0.5);
-        ctx.window = rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, (2.66, 2.0));
-        let mut new_real = ctx.window.real().clone();
-        new_real.mul_from(ctx.res.y as f32 / ctx.res.x as f32);
-        ctx.window.mut_imag().assign(new_real);
-        drop(ctx);
+        self.reset_window();
+        self.ctx_rwl.write().unwrap().center = rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, -0.5);
     }
 
     fn reload(&mut self) {
@@ -108,7 +108,12 @@ impl FractalEngine for SfmlEngine {
     }
 
     fn zoom_view(&mut self, zoom: f32) {
-        self.ctx_rwl.write().unwrap().window *= zoom;
+        let mut ctx = self.ctx_rwl.write().unwrap();
+        ctx.window *= zoom;
+        if ctx.auto_seq_iter {
+            ctx.seq_iter = fractal_engine::seq_iters_formula(&ctx.window, ctx.auto_seq_iter_fact);
+        }
+        drop(ctx);
         self.reload()
     }
 
@@ -131,6 +136,18 @@ impl FractalEngine for SfmlEngine {
 
     fn set_seq_iter(&mut self, seq_iter: u32) {
         self.ctx_rwl.write().unwrap().seq_iter = seq_iter;
+    }
+
+    fn set_auto_seq_iter(&mut self, auto_seq_iter: bool) {
+        let mut ctx = self.ctx_rwl.write().unwrap();
+        ctx.auto_seq_iter = auto_seq_iter;
+        if ctx.auto_seq_iter {
+            ctx.seq_iter = fractal_engine::seq_iters_formula(&ctx.window, ctx.auto_seq_iter_fact);
+        }
+    }
+
+    fn set_auto_seq_iter_fact(&mut self, auto_seq_iter_fact: f64) {
+        self.ctx_rwl.write().unwrap().auto_seq_iter_fact = auto_seq_iter_fact;
     }
 
     fn set_workers(&mut self, workers: usize) {
@@ -203,11 +220,30 @@ impl FractalEngine for SfmlEngine {
 
         ui.horizontal(|ui| {
             ui.label("Sequence Iterations : ");
-            let drag_value = ui.add(egui::DragValue::new(&mut ctx.seq_iter));
-            if drag_value.changed() {
+
+            let seq_iter_drag_value = ui.add(egui::DragValue::new(&mut ctx.seq_iter));
+            if seq_iter_drag_value.changed() {
                 self.set_seq_iter(ctx.seq_iter);
             }
-            if drag_value.drag_stopped() {
+            if seq_iter_drag_value.drag_stopped() {
+                self.reload();
+            }
+
+            if ui.checkbox(&mut ctx.auto_seq_iter, "Auto").clicked() {
+                self.set_auto_seq_iter(ctx.auto_seq_iter);
+            }
+            let auto_fact_drag_value = ui.add_enabled(
+                ctx.auto_seq_iter,
+                egui::DragValue::new(&mut ctx.auto_seq_iter_fact)
+                    .range(1.0..=f64::MAX)
+                    .speed(0.1),
+            );
+            if auto_fact_drag_value.changed() {
+                self.set_auto_seq_iter_fact(ctx.auto_seq_iter_fact);
+            }
+            if auto_fact_drag_value.drag_stopped() {
+                // Just to adjust the seq_iter
+                self.set_auto_seq_iter(true);
                 self.reload();
             }
         });

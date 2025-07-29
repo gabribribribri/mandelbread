@@ -1,11 +1,15 @@
 use std::time::Duration;
 
 use rug;
-use sfml::system::Vector2u;
+use sfml::{graphics::glsl::Vec4, system::Vector2u};
 
 use crate::fractal_complex::Complex;
 
+// Some Constants
 pub const FRCTL_CTX_CMPLX_PREC: u32 = 256;
+pub const INIT_SEQ_ITER: u32 = 75;
+pub const SEQ_ITER_FACT_BASE: f64 = 50.;
+pub const SEQ_ITER_FACT_EXXX: f64 = 115.;
 
 pub mod lodiv {
     pub const HIGHEST: u32 = 1;
@@ -22,6 +26,8 @@ pub struct FractalContext {
     pub backend: FractalBackend,
     pub lodiv: u32,
     pub seq_iter: u32,
+    pub auto_seq_iter: bool,
+    pub auto_seq_iter_fact: f64,
     pub reload_durs: Vec<Duration>,
     pub engine_enabled: bool,
     pub worker_count: usize,
@@ -52,6 +58,8 @@ impl Default for FractalContext {
             backend: FractalBackend::F64,
             lodiv: lodiv::HIGHEST,
             seq_iter: 100,
+            auto_seq_iter: true,
+            auto_seq_iter_fact: SEQ_ITER_FACT_BASE,
             reload_durs: vec![Duration::ZERO],
             engine_enabled: true,
             worker_count: 1,
@@ -80,6 +88,10 @@ pub trait FractalEngine {
 
     fn set_seq_iter(&mut self, seq_iter: u32);
 
+    fn set_auto_seq_iter(&mut self, auto_seq_iter: bool);
+
+    fn set_auto_seq_iter_fact(&mut self, auto_seq_iter_fact: f64);
+
     fn set_workers(&mut self, workers: usize);
 
     fn set_backend(&mut self, backend: FractalBackend);
@@ -89,4 +101,17 @@ pub trait FractalEngine {
     fn gui_bottom_panel(&mut self, ui: &mut egui::Ui);
 
     fn gui_central_panel(&mut self, ui: &mut egui::Ui);
+}
+
+pub fn two_f64_to_vec4(a: f64, b: f64) -> Vec4 {
+    let x = f32::from_bits((a.to_bits() >> 32) as u32);
+    let y = f32::from_bits((a.to_bits() & 0x0000_0000_FFFF_FFFF) as u32);
+    let z = f32::from_bits((b.to_bits() >> 32) as u32);
+    let w = f32::from_bits((b.to_bits() & 0x0000_0000_FFFF_FFFF) as u32);
+    Vec4 { x, y, z, w }
+}
+
+pub fn seq_iters_formula(window: &rug::Complex, factor: f64) -> u32 {
+    let window_size = f64::max(window.real().to_f64(), window.imag().to_f64());
+    INIT_SEQ_ITER + (factor * -window_size.log2()) as u32
 }

@@ -12,7 +12,7 @@ use sfml::{
     cpp::FBox,
     graphics::{
         Color, FloatRect, Rect, RectangleShape, RenderTarget, RenderTexture, RenderWindow, Shader,
-        Sprite, Texture, Transformable, View, glsl::Vec4,
+        Sprite, Texture, Transformable, View,
     },
     system::Vector2f,
     window::{ContextSettings, Event, Style, mouse::Button},
@@ -20,7 +20,7 @@ use sfml::{
 
 use crate::{
     fractal_complex,
-    fractal_engine::{FractalBackend, FractalContext, FractalNotif},
+    fractal_engine::{self, FractalBackend, FractalContext, FractalNotif},
     sfml_engine_worker::SfmlEngineWorkerInternal,
 };
 
@@ -249,6 +249,9 @@ impl<'a> SfmlEngineInternal<'a> {
             (new_ctr_pxl.x as i32, new_ctr_pxl.y as i32),
         );
         ctx.window *= zoom;
+        if ctx.auto_seq_iter {
+            ctx.seq_iter = fractal_engine::seq_iters_formula(&ctx.window, ctx.auto_seq_iter_fact);
+        }
         drop(ctx);
 
         self.reload_internal();
@@ -373,14 +376,20 @@ impl<'a> SfmlEngineInternal<'a> {
         self.shader
             .set_uniform_vec4(
                 "u_Center",
-                two_f64_to_vec4(ctx.center.real().to_f64(), ctx.center.imag().to_f64()),
+                fractal_engine::two_f64_to_vec4(
+                    ctx.center.real().to_f64(),
+                    ctx.center.imag().to_f64(),
+                ),
             )
             .unwrap();
 
         self.shader
             .set_uniform_vec4(
                 "u_Window",
-                two_f64_to_vec4(ctx.window.real().to_f64(), ctx.window.imag().to_f64()),
+                fractal_engine::two_f64_to_vec4(
+                    ctx.window.real().to_f64(),
+                    ctx.window.imag().to_f64(),
+                ),
             )
             .unwrap();
 
@@ -451,12 +460,4 @@ impl<'a> SfmlEngineInternal<'a> {
         self.render_texture.display();
         self.ctx_rwl.write().unwrap().reload_durs[0] = start.elapsed();
     }
-}
-
-fn two_f64_to_vec4(a: f64, b: f64) -> Vec4 {
-    let x = f32::from_bits((a.to_bits() >> 32) as u32);
-    let y = f32::from_bits((a.to_bits() & 0x0000_0000_FFFF_FFFF) as u32);
-    let z = f32::from_bits((b.to_bits() >> 32) as u32);
-    let w = f32::from_bits((b.to_bits() & 0x0000_0000_FFFF_FFFF) as u32);
-    Vec4 { x, y, z, w }
 }
