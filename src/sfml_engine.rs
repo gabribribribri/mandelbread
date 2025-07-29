@@ -232,6 +232,7 @@ impl FractalEngine for SfmlEngine {
 
             if ui.checkbox(&mut ctx.auto_seq_iter, "Auto").clicked() {
                 self.set_auto_seq_iter(ctx.auto_seq_iter);
+                self.reload();
             }
             let auto_fact_drag_value = ui.add_enabled(
                 ctx.auto_seq_iter,
@@ -405,7 +406,10 @@ impl FractalEngine for SfmlEngine {
                 ctx.center.real(),
                 ctx.center.imag()
             ));
-            ui.label(RichText::new("          Window : ").strong());
+        });
+
+        ui.horizontal(|ui| {
+            ui.label(RichText::new("Window : ").strong());
             ui.label(format!(
                 "{:.5}{:+.5}i",
                 ctx.window.real(),
