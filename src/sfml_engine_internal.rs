@@ -198,7 +198,7 @@ impl<'a> SfmlEngineInternal<'a> {
             self.win.size().y as f32 / sprite.texture_rect().height as f32,
         ));
 
-        self.win.clear(Color::BLACK);
+        self.win.clear(Color::rgb(64, 0, 0));
         self.win.draw(&sprite);
         self.win.display();
     }
