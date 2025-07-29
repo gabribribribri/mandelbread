@@ -358,11 +358,6 @@ impl<'a> SfmlEngineInternal<'a> {
     }
 
     fn adjust_uniforms(&mut self) {
-        // TODO Fix this ugliness
-        for dur in &mut self.ctx_rwl.write().unwrap().reload_durs {
-            *dur = Duration::ZERO;
-        }
-
         let ctx = self.ctx_rwl.read().unwrap();
 
         self.shader
@@ -450,7 +445,6 @@ impl<'a> SfmlEngineInternal<'a> {
         self.adjust_uniforms();
 
         // Render
-        let start = Instant::now();
         let states = sfml::graphics::RenderStates {
             shader: Some(&self.shader),
             ..Default::default()
@@ -462,6 +456,5 @@ impl<'a> SfmlEngineInternal<'a> {
         self.render_texture
             .draw_with_renderstates(&rect_to_render, &states);
         self.render_texture.display();
-        self.ctx_rwl.write().unwrap().reload_durs[0] = start.elapsed();
     }
 }

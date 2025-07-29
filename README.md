@@ -20,9 +20,9 @@ Not the best decision.
 ## TODOs
 If I do all of these the work will definitly be finished and my job here will be forever done (I will not)
 
- - [ ] Fix bug where Workers crash when switching backend while computing
- - [ ] Fix bug with GPU resolution changing
- - [ ] Fix reload time displaying for GPU
+ - [x] Fix bug where Workers crash when switching backend while computing
+ - [x] Fix bug with GPU resolution changing
+ - [ ] Fix reload time displaying for GPU (I failed I have no idea how to do that)
  - [ ] Implement changing the gradient colors
  - [ ] Implement diffusion theory rendering *(looks hard)*
 
