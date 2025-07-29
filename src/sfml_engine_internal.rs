@@ -4,7 +4,7 @@ use std::{
         mpsc::{self, Receiver, Sender, TryRecvError},
     },
     thread,
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use rug::{Assign, ops::MulFrom};
