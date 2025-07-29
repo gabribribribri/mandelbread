@@ -369,8 +369,8 @@ impl<'a> SfmlEngineInternal<'a> {
             .set_uniform_vec2(
                 "u_Resolution",
                 Vector2f::new(
-                    self.render_texture.size().x as f32 / ctx.lodiv as f32,
-                    self.render_texture.size().y as f32 / ctx.lodiv as f32,
+                    self.render_texture.size().x as f32,
+                    self.render_texture.size().y as f32,
                 ),
             )
             .unwrap();
