@@ -11,6 +11,7 @@ Not the best decision.
 - Rendering with GNU's MPFR libraries **(SLOW AF)**
 - GPU accelerated rendering using GLSL Shaders.
 - Changing the number of iterations of each pixel
+- Automatic iteration change
 - Changing the distance of convergence
 - Changing the resolution
 - Click to move
@@ -19,12 +20,11 @@ Not the best decision.
 ## TODOs
 If I do all of these the work will definitly be finished and my job here will be forever done (I will not)
 
- - [ ] Remove the left panel, since I won't implement other engines
  - [ ] Fix bug where Workers crash when switching backend while computing
  - [ ] Fix bug with GPU resolution changing
  - [ ] Fix reload time displaying for GPU
  - [ ] Implement changing the gradient colors
- - [ ] Implement diffusion theory rendering (looks hard)
+ - [ ] Implement diffusion theory rendering *(looks hard)*
 
 ## Installation 
 ### Windows

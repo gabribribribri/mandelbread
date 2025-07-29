@@ -6,10 +6,13 @@ use sfml::{graphics::glsl::Vec4, system::Vector2u};
 use crate::fractal_complex::Complex;
 
 // Some Constants
-pub const FRCTL_CTX_CMPLX_PREC: u32 = 256;
+pub const FRCTL_CTX_CMPLX_PREC: u32 = 128;
 pub const INIT_SEQ_ITER: u32 = 75;
 pub const SEQ_ITER_FACT_BASE: f64 = 50.;
-pub const SEQ_ITER_FACT_EXXX: f64 = 115.;
+pub const BASE_CENTER: f64 = -0.72;
+pub const BASE_WINDOW: (f64, f64) = (3.3, 0.0);
+pub const BASE_WORKER_COUNT: usize = 1;
+pub const BASE_CONV_DIST: f64 = 2.;
 
 pub mod lodiv {
     pub const HIGHEST: u32 = 1;
@@ -53,17 +56,17 @@ impl Default for FractalContext {
     fn default() -> Self {
         Self {
             res: (800, 600).into(),
-            center: rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, -0.5),
-            window: rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, (2.66, 2.0)),
-            backend: FractalBackend::F64,
+            center: rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, BASE_CENTER),
+            window: rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, BASE_WINDOW),
+            backend: FractalBackend::Shader,
             lodiv: lodiv::HIGHEST,
-            seq_iter: 100,
+            seq_iter: INIT_SEQ_ITER,
             auto_seq_iter: true,
             auto_seq_iter_fact: SEQ_ITER_FACT_BASE,
             reload_durs: vec![Duration::ZERO],
             engine_enabled: true,
-            worker_count: 1,
-            converge_distance: 2.0,
+            worker_count: BASE_WORKER_COUNT,
+            converge_distance: BASE_CONV_DIST,
             has_resized: true,
         }
     }

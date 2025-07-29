@@ -16,8 +16,8 @@ use rug::{
 use crate::{
     fractal_complex::Complex,
     fractal_engine::{
-        self, FRCTL_CTX_CMPLX_PREC, FractalBackend, FractalContext, FractalEngine, FractalNotif,
-        lodiv, seq_iters_formula,
+        self, BASE_CENTER, BASE_WINDOW, FRCTL_CTX_CMPLX_PREC, FractalBackend, FractalContext,
+        FractalEngine, FractalNotif, lodiv, seq_iters_formula,
     },
     sfml_engine_internal::SfmlEngineInternal,
 };
@@ -72,7 +72,7 @@ impl FractalEngine for SfmlEngine {
 
     fn reset_window(&mut self) {
         let mut ctx = self.ctx_rwl.write().unwrap();
-        ctx.window = rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, (2.66, 2.0));
+        ctx.window = rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, BASE_WINDOW);
         let mut new_real = ctx.window.real().clone();
         new_real.mul_from(ctx.res.y as f32 / ctx.res.x as f32);
         ctx.window.mut_imag().assign(new_real);
@@ -84,7 +84,8 @@ impl FractalEngine for SfmlEngine {
 
     fn reset_view(&mut self) {
         self.reset_window();
-        self.ctx_rwl.write().unwrap().center = rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, -0.5);
+        self.ctx_rwl.write().unwrap().center =
+            rug::Complex::with_val(FRCTL_CTX_CMPLX_PREC, BASE_CENTER);
     }
 
     fn reload(&mut self) {
