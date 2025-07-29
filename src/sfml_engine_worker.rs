@@ -40,8 +40,8 @@ impl SfmlEngineWorkerInternal {
     fn run(&mut self) {
         loop {
             match self.notif_rx.recv().unwrap() {
-                WorkerNotif::Reload => {
-                    let result = self.choose_compute_backend();
+                WorkerNotif::Reload(backend) => {
+                    let result = self.choose_compute_backend(backend);
                     self.data_tx.send(result).unwrap();
                 }
                 WorkerNotif::Shutdown => break,
@@ -50,8 +50,7 @@ impl SfmlEngineWorkerInternal {
         }
     }
 
-    fn choose_compute_backend(&mut self) -> WorkerResult {
-        let backend = self.ctx_rwl.read().unwrap().backend;
+    fn choose_compute_backend(&mut self, backend: FractalBackend) -> WorkerResult {
         match backend {
             FractalBackend::F64 => self.compute_image_f64(),
             FractalBackend::Rug => self.compute_image_rug(),

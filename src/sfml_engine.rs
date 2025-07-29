@@ -90,7 +90,7 @@ impl FractalEngine for SfmlEngine {
 
     fn reload(&mut self) {
         self.notif_tx
-            .send(FractalNotif::Reload)
+            .send(FractalNotif::Reload(self.ctx_rwl.read().unwrap().backend))
             .expect("Cannot reload the internal engine")
     }
 
@@ -129,9 +129,6 @@ impl FractalEngine for SfmlEngine {
 
     fn set_backend(&mut self, backend: FractalBackend) {
         self.ctx_rwl.write().unwrap().backend = backend;
-        self.notif_tx
-            .send(FractalNotif::ChangeBackend(backend))
-            .unwrap();
         self.reload()
     }
 

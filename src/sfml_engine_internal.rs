@@ -42,7 +42,7 @@ struct SfmlEngineWorkerExternal {
 
 pub enum WorkerNotif {
     SetRenderRect(Rect<u32>),
-    Reload,
+    Reload(FractalBackend),
     Shutdown,
 }
 
@@ -173,8 +173,10 @@ impl<'a> SfmlEngineInternal<'a> {
             Ok(notif) => match notif {
                 FractalNotif::Commence => panic!("bah bro je roule déjà..."),
                 FractalNotif::Shutdown => self.shutdown_internal(),
-                FractalNotif::Reload => self.reload_internal(),
-                FractalNotif::ChangeBackend(backend) => self.backend = backend,
+                FractalNotif::Reload(backend) => {
+                    self.backend = backend;
+                    self.reload_internal(backend);
+                }
             },
             Err(TryRecvError::Empty) => (),
             Err(TryRecvError::Disconnected) => panic!("The connexion shouldn't be disconnected"),
@@ -232,7 +234,7 @@ impl<'a> SfmlEngineInternal<'a> {
             fractal_complex::map_pixel_value_rug(self.win.size(), &ctx.center, &ctx.window, (x, y));
 
         drop(ctx);
-        self.reload_internal();
+        self.reload_internal(self.backend);
     }
 
     fn zoom_view_scrollwheel(&mut self, zoom: f32, x: i32, y: i32) {
@@ -254,7 +256,7 @@ impl<'a> SfmlEngineInternal<'a> {
         }
         drop(ctx);
 
-        self.reload_internal();
+        self.reload_internal(self.backend);
     }
 
     fn manage_workers(&mut self, new_worker_count: usize) {
@@ -402,14 +404,16 @@ impl<'a> SfmlEngineInternal<'a> {
             .unwrap();
     }
 
-    fn reload_internal(&mut self) {
-        match self.backend {
-            FractalBackend::F64 | FractalBackend::Rug => self.prepare_and_reload_internal_cpu(),
+    fn reload_internal(&mut self, backend: FractalBackend) {
+        match backend {
+            FractalBackend::F64 | FractalBackend::Rug => {
+                self.prepare_and_reload_internal_cpu(backend)
+            }
             FractalBackend::Shader => self.prepare_and_reload_internal_gpu(),
         }
     }
 
-    fn prepare_and_reload_internal_cpu(&mut self) {
+    fn prepare_and_reload_internal_cpu(&mut self, backend: FractalBackend) {
         // Prepare
         self.adjust_workers_if_needed();
         self.adjust_textures_if_needed();
@@ -417,7 +421,7 @@ impl<'a> SfmlEngineInternal<'a> {
         // Reload
         // Send the start message to the workers !
         for worker in &self.workers {
-            worker.tx.send(WorkerNotif::Reload).unwrap();
+            worker.tx.send(WorkerNotif::Reload(backend)).unwrap();
         }
 
         // Receive raw pixel data and upload it to GPU

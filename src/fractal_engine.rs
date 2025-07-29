@@ -48,8 +48,7 @@ pub enum FractalBackend {
 pub enum FractalNotif {
     Commence,
     Shutdown,
-    Reload,
-    ChangeBackend(FractalBackend),
+    Reload(FractalBackend),
 }
 
 impl Default for FractalContext {
