@@ -1,8 +1,8 @@
 # Mandelbread - Bad Mandelbrot Renderer 
 The name doesn't mean anything, it just sounds funny.
-I thought it would be cool to build my own renderer fractal renderer, so I did.
-I built it using Rust, the egui graphic libary for the UI and SFML for the rendering.
-Not the best decision.
+I thought it would be cool to build my own fractal renderer, so I did.
+I built it using Rust, the egui graphic libary for the UI. And SFML for the rendering.
+Not the best decisions.
 
 ## Features
 - Render the Mandelbrot set with RGB gradient
@@ -15,7 +15,7 @@ Not the best decision.
 - Changing the distance of convergence
 - Changing the resolution
 - Click to move
-- Zoom with scroll wheel 
+- Scroll Wheel to zoom
 
 ## TODOs
 If I do all of these the work will definitly be finished and my job here will be forever done (I will not)
@@ -27,7 +27,7 @@ If I do all of these the work will definitly be finished and my job here will be
  - [ ] Implement changing the gradient colors
  - [ ] Implement diffusion theory rendering *(looks hard)*
 
-## Installation 
+## Building 
 ### Windows
 After git cloning the repository :
 1. Install [Rust](https://www.rust-lang.org/)
