@@ -29,16 +29,28 @@ If I do all of these the work will definitly be finished and my job here will be
 
 ## Installation 
 ### Windows
-1. Switch to Linux
+After git cloning the repository :
+1. Install Rust (https://www.rust-lang.org/)
+2. Install MSYS2 (https://www.msys2.org/)
+3. Install cmake (https://cmake.org/download/)
+4. Add MinGW-w64 to your PATH (C:\msys64\mingw64\bin if you did not change the install folder)
+5. Open MSYS2 and enter these commands
+```bash
+pacman -Syu
+pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-make
+```
+6. rustup default stable-x86_64-pc-windows-gnu
+7. `cargo run --release`
 
 ### MacOS
 1. Reflect on your life choices
 2. Switch to Linux
 
 ### Linux
+I only tried **Fedora 42** so good luck on your distro.
 #### Fedora
-I only tried **Fedora 42** so good luck on your distro
-Apparently, these are all the things you need to install to make it work on Fedora :
+1. Git clone the repository
+2. Apparently, these are all the things you need to install (with dnf) to make it work on Fedora :
 ```bash
 libmpc-devel mesa-libGL-devel mesa-libGLU-devel  libX11-devel  libICE-devel  libSM-devel libxkbcommon-devel  libXaw-devel  libxcb-devel  libXpm-devel  libXt-devel libudev-devel libxkbfile-devel  libxcb-cursor-devel  libxcb-errors-devel  libxcb-ewmh-devel libxcb-icccm-devel  libxcb-image-devel  libxcb-keysyms-devel libXrandr-devel libXcursor-devel libc-devel libgcc libstdc++-devel gmp-devel mpfr-devel SFML SFML-devel
 ```
@@ -47,4 +59,5 @@ Group install this :
 "Development Tools"
 ```
 Some of them don't even exist, that's ok
+3. `cargo run`
 
