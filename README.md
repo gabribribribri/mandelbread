@@ -30,17 +30,17 @@ If I do all of these the work will definitly be finished and my job here will be
 ## Installation 
 ### Windows
 After git cloning the repository :
-1. Install Rust (https://www.rust-lang.org/)
-2. Install MSYS2 (https://www.msys2.org/)
-3. Install cmake (https://cmake.org/download/)
+1. Install [Rust](https://www.rust-lang.org/)
+2. Install [MSYS2](https://www.msys2.org/)
+3. Install [cmake](https://cmake.org/download/)
 4. Add MinGW-w64 to your PATH (C:\msys64\mingw64\bin if you did not change the install folder)
 5. Open MSYS2 and enter these commands
 ```bash
 pacman -Syu
 pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-make
 ```
-6. rustup default stable-x86_64-pc-windows-gnu
-7. `cargo run --release`
+6. Run `rustup default stable-x86_64-pc-windows-gnu`
+7. Run `cargo run --release`
 
 ### MacOS
 1. Reflect on your life choices
