@@ -1,0 +1,20 @@
+Ryzen 5 3600X @ 1920x1052:
+64-bit prec:128 seq:75   workers:1 = 156ms
+64-bit prec:128 seq:2000 workers:1 = 2554ms
+64-bit prec:128 seq:75   workers:12 = 19ms
+64-bit prec:128 seq:2000 workers:12 = 436ms
+Rug    prec:128 seq:75   workers:1 = 14399
+Rug    prec:128 seq:2000 workers:1 = Nope
+Rug    prec:128 seq:75   workers:12 = 2856ms
+Rug    prec:128 seq:2000 workers:12 = 58567ms temp:65C
+
+Ryzen 9 5950X @ 1920@1052:
+
+64-bit prec:128 seq:75   workers:1 = 100ms
+64-bit prec:128 seq:2000 workers:1 = 2133ms
+64-bit prec:128 seq:75   workers:32 = 7ms
+64-bit prec:128 seq:2000 workers:32 = 145ms
+Rug    prec:128 seq:75   workers:1 = 9664ms
+Rug    prec:128 seq:2000 workers:1 = 187015s (damn c'est long)
+Rug    prec:128 seq:75   workers:32 = 783ms
+Rug    prec:128 seq:2000 workers:32 = 16000ms temp:83C
